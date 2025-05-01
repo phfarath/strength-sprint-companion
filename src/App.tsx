@@ -15,6 +15,7 @@ import FoodDiary from "./pages/nutrition/FoodDiary";
 import ProgressDashboard from "./pages/progress/ProgressDashboard";
 import NotificationCenter from "./pages/notifications/NotificationCenter";
 import ProfileSettings from "./pages/user/ProfileSettings";
+import FeedbackPage from "./pages/user/FeedbackPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ const App = () => (
             
             {/* User Routes */}
             <Route path="/profile" element={<ProfileSettings />} />
+            <Route path="/feedback" element={<FeedbackPage />} />
             
             {/* 404 Route */}
             <Route path="*" element={<NotFound />} />
