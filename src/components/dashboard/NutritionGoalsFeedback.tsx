@@ -1,13 +1,33 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAppContext } from '@/context/AppContext';
 import { calculateDailyNutrition } from '@/data/mockData';
-import { FileText } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 
 const NutritionGoalsFeedback = () => {
   const { mealPlans, user, getCurrentDate } = useAppContext();
+  
+  // Logs de debug
+  console.log('NutritionGoalsFeedback - user:', user);
+  console.log('NutritionGoalsFeedback - nutritionGoals:', user?.nutritionGoals);
+  
+  // Verificar se user e user.nutritionGoals existem
+  if (!user || !user.nutritionGoals) {
+    return (
+      <Card className="bg-white rounded-lg shadow mb-6">
+        <CardHeader className="flex flex-row items-center pb-2">
+          <FileText className="mr-2 text-fitness-primary" size={20} />
+          <CardTitle className="text-lg font-semibold">Feedback Nutricional</CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-fitness-primary" />
+          <span className="ml-2 text-gray-500">Carregando informações nutricionais...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+  
   const todayMealPlan = mealPlans.find(plan => plan.date === getCurrentDate());
   
   // Obter dados nutricionais e metas

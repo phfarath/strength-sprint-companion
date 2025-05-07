@@ -1,0 +1,229 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Verifique este modelo no seu schema.prisma
+model User {
+  id            Int             @id @default(autoincrement())
+  name          String
+  email         String          @unique
+  password_hash String
+  created_at    DateTime        @default(now())
+  workoutPlans    WorkoutPlan[]
+  workoutSessions WorkoutSession[]
+  dietPlans       DietPlan[]
+  foodDiaries     FoodDiary[]
+  pointsLogs      PointsLog[]
+  userBadges      UserBadge[]
+  deviceData      DeviceData[]
+  feedback        UserFeedback[]
+
+  @@map("users")
+}
+
+model Exercise {
+  id                      Int                      @id @default(autoincrement())
+  name                    String
+  muscle_group            String?
+  description             String?
+  workoutPlanExercises    WorkoutPlanExercise[]
+  workoutSessionExercises WorkoutSessionExercise[]
+
+  @@map("exercises")
+}
+
+model Food {
+  id                Int              @id @default(autoincrement())
+  name              String
+  calories_per_100g Int
+  protein_per_100g  Decimal          @db.Decimal(5, 2)
+  carbs_per_100g    Decimal          @db.Decimal(5, 2)
+  fat_per_100g      Decimal          @db.Decimal(5, 2)
+  dietPlanFoods     DietPlanFood[]
+  foodDiaryEntries  FoodDiaryEntry[]
+
+  @@map("foods")
+}
+
+model Badge {
+  id          Int         @id @default(autoincrement())
+  code        String      @unique
+  title       String
+  description String?
+  userBadges  UserBadge[]
+
+  @@map("badges")
+}
+
+model WorkoutPlan {
+  id         Int                   @id @default(autoincrement())
+  user_id    Int
+  title      String
+  start_date DateTime              @db.Date
+  end_date   DateTime              @db.Date
+  created_at DateTime              @default(now())
+  user       User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  exercises  WorkoutPlanExercise[]
+
+  @@map("workout_plans")
+}
+
+model WorkoutPlanExercise {
+  plan_id     Int
+  exercise_id Int
+  day_of_week Int
+  sets        Int
+  reps        Int
+  load_kg     Decimal?    @db.Decimal(5, 2)
+  notes       String?
+  plan        WorkoutPlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  exercise    Exercise    @relation(fields: [exercise_id], references: [id])
+
+  @@id([plan_id, exercise_id, day_of_week])
+  @@map("workout_plan_exercises")
+}
+
+model WorkoutSession {
+  id           Int                      @id @default(autoincrement())
+  user_id      Int
+  date         DateTime                 @db.Date
+  completed_at DateTime?
+  notes        String?
+  user         User                     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  exercises    WorkoutSessionExercise[]
+
+  @@map("workout_sessions")
+}
+
+model WorkoutSessionExercise {
+  session_id     Int
+  exercise_id    Int
+  actual_sets    Int
+  actual_reps    Int
+  actual_load_kg Decimal?       @db.Decimal(5, 2)
+  comments       String?
+  session        WorkoutSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  exercise       Exercise       @relation(fields: [exercise_id], references: [id])
+
+  @@id([session_id, exercise_id])
+  @@map("workout_session_exercises")
+}
+
+model DietPlan {
+  id         Int            @id @default(autoincrement())
+  user_id    Int
+  title      String
+  start_date DateTime       @db.Date
+  end_date   DateTime       @db.Date
+  created_at DateTime       @default(now())
+  user       User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  meals      DietPlanMeal[]
+  foods      DietPlanFood[]
+
+  @@map("diet_plans")
+}
+
+model DietPlanMeal {
+  plan_id        Int
+  meal_name      String
+  scheduled_time String?
+  notes          String?
+  plan           DietPlan       @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  foods          DietPlanFood[]
+
+  @@id([plan_id, meal_name])
+  @@map("diet_plan_meals")
+}
+
+model DietPlanFood {
+  plan_id   Int
+  meal_name String
+  food_id   Int
+  portion_g Decimal      @db.Decimal(7, 2)
+  plan      DietPlan     @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  meal      DietPlanMeal @relation(fields: [plan_id, meal_name], references: [plan_id, meal_name], onDelete: Cascade)
+  food      Food         @relation(fields: [food_id], references: [id])
+
+  @@id([plan_id, meal_name, food_id])
+  @@map("diet_plan_foods")
+}
+
+model FoodDiary {
+  id         Int              @id @default(autoincrement())
+  user_id    Int
+  date       DateTime         @db.Date
+  created_at DateTime         @default(now())
+  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  entries    FoodDiaryEntry[]
+
+  @@map("food_diary")
+}
+
+model FoodDiaryEntry {
+  diary_id  Int
+  food_id   Int
+  portion_g Decimal   @db.Decimal(7, 2)
+  diary     FoodDiary @relation(fields: [diary_id], references: [id], onDelete: Cascade)
+  food      Food      @relation(fields: [food_id], references: [id])
+
+  @@id([diary_id, food_id])
+  @@map("food_diary_entries")
+}
+
+model PointsLog {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  points     Int
+  reason     String?
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("points_log")
+}
+
+model UserBadge {
+  user_id    Int
+  badge_id   Int
+  awarded_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  badge      Badge    @relation(fields: [badge_id], references: [id])
+
+  @@id([user_id, badge_id])
+  @@map("user_badges")
+}
+
+model DeviceData {
+  id              Int      @id @default(autoincrement())
+  user_id         Int
+  date            DateTime @db.Date
+  steps           Int?
+  calories_burned Int?
+  heart_rate_avg  Int?
+  created_at      DateTime @default(now())
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("device_data")
+}
+
+model UserFeedback {
+  id         Int      @id @default(autoincrement())
+  user_id    Int?
+  name       String?
+  sentiment  Int?
+  comment    String
+  created_at DateTime @default(now())
+  user       User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@map("user_feedback")
+}

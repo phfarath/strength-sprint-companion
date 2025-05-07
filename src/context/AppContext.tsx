@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
   Exercise, Food, MealPlan, Notification, User, WorkoutLog, WorkoutPlan 
@@ -12,10 +11,33 @@ import {
   workoutLogs as mockWorkoutLogs,
   workoutPlans as mockWorkoutPlans,
   getCurrentDate,
-  getTodaysWorkout
+  getTodaysWorkout as getMockTodaysWorkout
 } from '../data/mockData';
 import { toast } from '@/components/ui/use-toast';
+import { apiServices } from '../services/api';
 
+// Antes do useState
+const DEFAULT_USER: User = {
+  id: '',
+  name: '',
+  nutritionGoals: {
+    calories: 2000,
+    protein: 150,
+    carbs: 200,
+    fat: 70
+  }
+};
+
+// Authentication result types
+interface LoginResult {
+  success: boolean;
+  message?: string;
+}
+
+interface RegisterResult {
+  success: boolean;
+  message?: string;
+}
 interface AppContextType {
   // Dados
   exercises: Exercise[];
@@ -25,6 +47,13 @@ interface AppContextType {
   user: User;
   workoutLogs: WorkoutLog[];
   workoutPlans: WorkoutPlan[];
+  isAuthenticated: boolean; // Adicione esta propriedade
+  isLoading: boolean; // Adicione esta propriedade
+  
+  // Funções de autenticação
+  login: (email: string, password: string) => Promise<LoginResult>;
+  register: (userData: { name: string, email: string, password: string }) => Promise<RegisterResult>;
+  logout: () => void;
   
   // Funções de workout
   addWorkoutPlan: (plan: Omit<WorkoutPlan, 'id'>) => void;
@@ -64,78 +93,210 @@ export const useAppContext = () => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Estado para armazenar dados
-  const [exercises, setExercises] = useState<Exercise[]>(mockExercises);
-  const [foods, setFoods] = useState<Food[]>(mockFoods);
-  const [mealPlans, setMealPlans] = useState<MealPlan[]>(mockMealPlans);
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
-  const [user, setUser] = useState<User>(mockUser);
-  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>(mockWorkoutLogs);
-  const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>(mockWorkoutPlans);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [foods, setFoods] = useState<Food[]>([]);
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [user, setUser] = useState<User | null>(DEFAULT_USER);
+  const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([]);
+  const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Carregando dados do localStorage na inicialização (se existirem)
+  // Verificar autenticação na inicialização
   useEffect(() => {
-    const storedExercises = localStorage.getItem('exercises');
-    if (storedExercises) setExercises(JSON.parse(storedExercises));
-
-    const storedFoods = localStorage.getItem('foods');
-    if (storedFoods) setFoods(JSON.parse(storedFoods));
-
-    const storedMealPlans = localStorage.getItem('mealPlans');
-    if (storedMealPlans) setMealPlans(JSON.parse(storedMealPlans));
-    
-    const storedNotifications = localStorage.getItem('notifications');
-    if (storedNotifications) setNotifications(JSON.parse(storedNotifications));
-    
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) setUser(JSON.parse(storedUser));
-    
-    const storedWorkoutLogs = localStorage.getItem('workoutLogs');
-    if (storedWorkoutLogs) setWorkoutLogs(JSON.parse(storedWorkoutLogs));
-    
-    const storedWorkoutPlans = localStorage.getItem('workoutPlans');
-    if (storedWorkoutPlans) setWorkoutPlans(JSON.parse(storedWorkoutPlans));
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      setIsAuthenticated(true);
+      fetchUserData();
+    } else {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Salvando dados no localStorage quando mudarem
-  useEffect(() => {
-    localStorage.setItem('exercises', JSON.stringify(exercises));
-  }, [exercises]);
+  // Função para buscar dados do usuário
+  const fetchUserData = async () => {
+    setIsLoading(true);
+    try {
+      const userResponse = await apiServices.getProfile();
+      
+      // Se o usuário não tiver metas nutricionais definidas, adicione valores padrão
+      if (!userResponse.data.nutritionGoals) {
+        userResponse.data.nutritionGoals = DEFAULT_USER.nutritionGoals;
+      }
+      
+      setUser(userResponse.data);
+      
+      // Buscar outros dados com tratamento de erro individual
+      try {
+        const exercisesResponse = await apiServices.getExercises();
+        setExercises(exercisesResponse.data);
+      } catch (error) {
+        console.error('Erro ao buscar exercícios:', error);
+        setExercises(mockExercises);
+      }
+      
+      try {
+        const foodsResponse = await apiServices.getFoods();
+        setFoods(foodsResponse.data);
+      } catch (error) {
+        console.error('Erro ao buscar alimentos:', error);
+        setFoods(mockFoods);
+      }
+      
+      // E assim por diante para outros fetchs
+    } catch (error) {
+      console.error('Erro ao buscar dados do usuário:', error);
+      
+      // Se o erro for de autenticação (401), fazer logout
+      if (error.response?.status === 401) {
+        logout();
+      } else {
+        // Para outros erros, usar dados mockados
+        setUser(mockUser);
+        setExercises(mockExercises);
+        setFoods(mockFoods);
+        setWorkoutPlans(mockWorkoutPlans);
+        setWorkoutLogs(mockWorkoutLogs);
+        setMealPlans(mockMealPlans);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('foods', JSON.stringify(foods));
-  }, [foods]);
+  // Funções para buscar dados da API
+  const fetchExercises = async () => {
+    try {
+      const response = await apiServices.getExercises();
+      setExercises(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar exercícios:', error);
+      setExercises(mockExercises); // Fallback temporário
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('mealPlans', JSON.stringify(mealPlans));
-  }, [mealPlans]);
+  const fetchFoods = async () => {
+    try {
+      const response = await apiServices.getFoods();
+      setFoods(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar alimentos:', error);
+      setFoods(mockFoods); // Fallback temporário
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('notifications', JSON.stringify(notifications));
-  }, [notifications]);
+  const fetchWorkoutPlans = async () => {
+    try {
+      const response = await apiServices.getWorkoutPlans();
+      setWorkoutPlans(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar planos de treino:', error);
+      setWorkoutPlans(mockWorkoutPlans); // Fallback temporário
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('user', JSON.stringify(user));
-  }, [user]);
+  const fetchWorkoutLogs = async () => {
+    try {
+      const response = await apiServices.getWorkoutSessions();
+      setWorkoutLogs(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar logs de treino:', error);
+      setWorkoutLogs(mockWorkoutLogs); // Fallback temporário
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('workoutLogs', JSON.stringify(workoutLogs));
-  }, [workoutLogs]);
+  const fetchMealPlans = async () => {
+    try {
+      const response = await apiServices.getDietPlans();
+      setMealPlans(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar planos alimentares:', error);
+      setMealPlans(mockMealPlans); // Fallback temporário
+    }
+  };
 
-  useEffect(() => {
-    localStorage.setItem('workoutPlans', JSON.stringify(workoutPlans));
-  }, [workoutPlans]);
+  // Funções de autenticação
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await apiServices.login({ email, password });
+      const { token, user: userData } = response.data;
+      
+      // Salvar token
+      localStorage.setItem('auth_token', token);
+      setIsAuthenticated(true);
+      setUser(userData);
+      
+      // Buscar outros dados após login
+      fetchUserData();
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao fazer login:', error);
+      return { 
+        success: false, 
+        message: error.response?.data?.message || 'Erro ao fazer login'
+      };
+    }
+  };
 
-  // Funções para gerenciar planos de treino
-  const addWorkoutPlan = (plan: Omit<WorkoutPlan, 'id'>) => {
-    const newPlan: WorkoutPlan = {
-      ...plan,
-      id: `wp${Date.now()}`
-    };
-    setWorkoutPlans([...workoutPlans, newPlan]);
-    toast({
-      title: "Plano de treino adicionado",
-      description: `O plano ${newPlan.name} foi adicionado com sucesso!`,
-    });
+  const register = async (userData: { name: string, email: string, password: string }) => {
+    try {
+      const response = await apiServices.register(userData);
+      const { token, user: newUser } = response.data;
+      
+      // Salvar token
+      localStorage.setItem('auth_token', token);
+      setIsAuthenticated(true);
+      setUser(newUser);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao registrar:', error);
+      return { 
+        success: false, 
+        message: error.response?.data?.message || 'Erro ao registrar usuário'
+      };
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('auth_token');
+    setIsAuthenticated(false);
+    setUser(null);
+    // Limpar dados
+    setExercises([]);
+    setFoods([]);
+    setWorkoutPlans([]);
+    setWorkoutLogs([]);
+    setMealPlans([]);
+    setNotifications([]);
+  };
+
+  // Atualizar o getTodaysWorkout para usar os dados reais (e não os mockados)
+  const getTodaysWorkout = (): WorkoutPlan | undefined => {
+    const currentDayOfWeek = new Date().getDay();
+    return workoutPlans.find(plan => plan.dayOfWeek === currentDayOfWeek);
+  };
+
+  // Restante das funções modificadas para usar a API
+  const addWorkoutPlan = async (plan: Omit<WorkoutPlan, 'id'>) => {
+    try {
+      const response = await apiServices.createWorkoutPlan(plan);
+      const newPlan = response.data;
+      setWorkoutPlans([...workoutPlans, newPlan]);
+      toast({
+        title: "Plano de treino adicionado",
+        description: `O plano ${newPlan.name} foi adicionado com sucesso!`,
+      });
+    } catch (error) {
+      console.error('Erro ao adicionar plano:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o plano. Tente novamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const updateWorkoutPlan = (plan: WorkoutPlan) => {
@@ -284,24 +445,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     user,
     workoutLogs,
     workoutPlans,
+    isLoading,
+    isAuthenticated,
     
-    // Funções de workout
+    // Funções de autenticação
+    login,
+    register,
+    logout,
+    
+    // Funções de workout (manter as existentes)
     addWorkoutPlan,
     updateWorkoutPlan,
     deleteWorkoutPlan,
     logWorkout,
     updateWorkoutLog,
     
-    // Funções de meal
+    // Funções de meal (manter as existentes)
     addMealPlan,
     updateMealPlan,
     deleteMealPlan,
     
-    // Funções de usuário
+    // Funções de usuário (manter as existentes)
     updateUserGoals,
     updateUserProfile,
     
-    // Funções de notificações
+    // Funções de notificações (manter as existentes)
     markNotificationAsRead,
     addNotification,
     

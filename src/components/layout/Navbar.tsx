@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Bell } from 'lucide-react';
@@ -7,7 +6,7 @@ import { useAppContext } from '@/context/AppContext';
 import { Badge } from '@/components/ui/badge';
 
 const Navbar = () => {
-  const { notifications } = useAppContext();
+  const { notifications, logout } = useAppContext();
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
@@ -24,10 +23,10 @@ const Navbar = () => {
             <Link to="/" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
               Dashboard
             </Link>
-            <Link to="/workout" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
+            <Link to="/workout/planning" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
               Treinos
             </Link>
-            <Link to="/nutrition" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
+            <Link to="/nutrition/planning" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
               Nutrição
             </Link>
             <Link to="/progress" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
@@ -51,6 +50,12 @@ const Navbar = () => {
                 {useAppContext().user.name.charAt(0)}
               </div>
             </Link>
+            <button 
+              onClick={logout} 
+              className="ml-4 px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-md hover:bg-red-600"
+            >
+              Sair
+            </button>
           </div>
         </div>
       </div>
