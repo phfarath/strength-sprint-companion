@@ -98,19 +98,15 @@ router.post('/login', async (req, res) => {
 });
 
 // Rota para obter perfil do usuário (PROTEGIDA)
-router.get('/profile', auth, async (req, res) => { // Aplica o middleware auth
+router.get('/profile', auth, async (req, res) => {
   try {
-    // req.user é definido pelo middleware auth
     const userId = req.user.id;
     
+    // Busca o usuário incluindo suas metas nutricionais
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        created_at: true,
-        // Adicione outros campos conforme necessário
+      where: { id: parseInt(userId) },
+      include: {
+        nutritionGoals: true
       }
     });
     
@@ -118,10 +114,126 @@ router.get('/profile', auth, async (req, res) => { // Aplica o middleware auth
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
     
-    res.json(user);
+    // Log detalhado para depuração
+    console.log('Dados do usuário sendo enviados:', JSON.stringify(user, null, 2));
+    
+    // Retorna o usuário formatado corretamente
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      weight: user.weight,
+      height: user.height,
+      birthdate: user.birthdate,
+      nutritionGoals: user.nutritionGoals ? {
+        calories: user.nutritionGoals.calories,
+        protein: user.nutritionGoals.protein,
+        carbs: user.nutritionGoals.carbs,
+        fat: user.nutritionGoals.fat
+      } : null
+    });
   } catch (error) {
     console.error('Erro ao buscar perfil:', error);
     res.status(500).json({ message: 'Erro no servidor' });
+  }
+});
+
+// Rota para atualizar perfil do usuário
+router.put('/profile', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, weight, height, birthdate } = req.body;
+    
+    console.log("Dados recebidos para atualização:", req.body);
+    console.log("ID do usuário:", userId);
+    
+    // Verificar se o usuário existe
+    const userExists = await prisma.user.findUnique({
+      where: { id: parseInt(userId) }
+    });
+    
+    if (!userExists) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+    
+    // Converter tipos apropriadamente
+    const updatedUser = await prisma.user.update({
+      where: { id: parseInt(userId) },
+      data: {
+        name,
+        weight: weight ? parseFloat(weight) : null,
+        height: height ? parseFloat(height) : null,
+        birthdate: birthdate || null
+      }
+    });
+    
+    console.log("Usuário atualizado com sucesso:", updatedUser);
+    
+    res.json({
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      weight: updatedUser.weight,
+      height: updatedUser.height,
+      birthdate: updatedUser.birthdate,
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar perfil:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ 
+      message: 'Erro no servidor ao atualizar perfil', 
+      error: error.message 
+    });
+  }
+});
+
+// Rota para atualizar metas nutricionais
+router.put('/profile/nutrition-goals', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id);
+    const { calories, protein, carbs, fat } = req.body;
+    
+    console.log("Dados de metas recebidos:", { calories, protein, carbs, fat });
+    console.log("ID do usuário:", userId);
+    
+    // Converter para os tipos corretos
+    const nutritionData = {
+      calories: parseInt(calories),
+      protein: parseInt(protein), 
+      carbs: parseInt(carbs),
+      fat: parseInt(fat)
+    };
+    
+    // Verifique se já existem metas nutricionais
+    let nutritionGoals = await prisma.nutritionGoals.findUnique({
+      where: { userId }
+    });
+    
+    if (nutritionGoals) {
+      // Atualizar metas existentes
+      nutritionGoals = await prisma.nutritionGoals.update({
+        where: { userId },
+        data: nutritionData
+      });
+    } else {
+      // Criar novas metas
+      nutritionGoals = await prisma.nutritionGoals.create({
+        data: {
+          userId,
+          ...nutritionData
+        }
+      });
+    }
+    
+    console.log("Metas nutricionais atualizadas:", nutritionGoals);
+    res.json(nutritionGoals);
+  } catch (error) {
+    console.error('Erro ao atualizar metas nutricionais:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ 
+      message: 'Erro no servidor ao atualizar metas',
+      error: error.message 
+    });
   }
 });
 

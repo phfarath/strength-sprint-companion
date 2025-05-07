@@ -27,7 +27,9 @@ export const apiServices = {
   // Users/Auth
   register: (userData) => api.post('/users/register', userData),
   login: (credentials) => api.post('/users/login', credentials),
-  getProfile: () => api.get('/users/profile'), // Adicione esta linha
+  getProfile: () => api.get('/users/profile'),
+  updateProfile: (profileData) => api.put('/users/profile', profileData),
+  updateNutritionGoals: (goals) => api.put('/users/profile/nutrition-goals', goals),
   
   // Exercises
   getExercises: () => api.get('/exercises'),

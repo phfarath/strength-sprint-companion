@@ -19,6 +19,9 @@ model User {
   name          String
   email         String          @unique
   password_hash String
+  weight        Float?
+  height        Float?
+  birthdate     String?
   created_at    DateTime        @default(now())
   workoutPlans    WorkoutPlan[]
   workoutSessions WorkoutSession[]
@@ -28,6 +31,7 @@ model User {
   userBadges      UserBadge[]
   deviceData      DeviceData[]
   feedback        UserFeedback[]
+  nutritionGoals  NutritionGoals?
 
   @@map("users")
 }
@@ -226,4 +230,14 @@ model UserFeedback {
   user       User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
 
   @@map("user_feedback")
+}
+
+model NutritionGoals {
+  id       Int     @id @default(autoincrement())
+  calories Int
+  protein  Int
+  carbs    Int
+  fat      Int
+  userId   Int     @unique
+  user     User    @relation(fields: [userId], references: [id])
 }

@@ -369,20 +369,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Funções para gerenciar perfil do usuário
-  const updateUserGoals = (goals: User['nutritionGoals']) => {
-    setUser({ ...user, nutritionGoals: goals });
-    toast({
-      title: "Metas atualizadas",
-      description: `Suas metas nutricionais foram atualizadas com sucesso!`,
-    });
+  const updateUserGoals = async (goals: User['nutritionGoals']) => {
+    try {
+      // Envia para o servidor primeiro
+      const response = await apiServices.updateNutritionGoals(goals);
+      
+      // Atualiza o estado com os dados retornados do servidor
+      setUser(prevUser => ({ 
+        ...prevUser,
+        nutritionGoals: response.data 
+      }));
+      
+      toast({
+        title: "Metas atualizadas",
+        description: "Suas metas nutricionais foram atualizadas com sucesso!",
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar metas nutricionais:", error);
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível salvar suas alterações no servidor.",
+        variant: "destructive"
+      });
+    }
   };
 
-  const updateUserProfile = (profile: Omit<User, 'id' | 'nutritionGoals'>) => {
-    setUser({ ...user, ...profile });
-    toast({
-      title: "Perfil atualizado",
-      description: `Seu perfil foi atualizado com sucesso!`,
-    });
+  const updateUserProfile = async (profile: Omit<User, 'id' | 'nutritionGoals'>) => {
+    try {
+      await apiServices.updateProfile(profile);
+      
+      // Busca novamente todos os dados do usuário
+      fetchUserData();
+      
+      toast({
+        title: "Perfil atualizado",
+        description: "Seu perfil foi atualizado com sucesso!",
+      });
+    } catch (error) {
+      console.error("Erro ao atualizar perfil:", error);
+      toast({
+        title: "Erro ao atualizar",
+        description: "Não foi possível salvar suas alterações no servidor.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Funções para gerenciar notificações
