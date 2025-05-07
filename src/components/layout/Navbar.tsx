@@ -23,10 +23,10 @@ const Navbar = () => {
             <Link to="/" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
               Dashboard
             </Link>
-            <Link to="/workout/planning" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
+            <Link to="/workout" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
               Treinos
             </Link>
-            <Link to="/nutrition/planning" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
+            <Link to="/nutrition" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
               Nutrição
             </Link>
             <Link to="/progress" className="text-gray-600 hover:text-fitness-primary px-3 py-2 rounded-md font-medium">
