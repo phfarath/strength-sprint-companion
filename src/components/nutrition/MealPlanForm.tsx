@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import { MealPlan, Meal } from '@/types';
@@ -10,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import MealForm from './MealForm';
 import { calculateMealNutrition } from '@/data/mockData';
 import { Plus, Trash, Edit } from 'lucide-react';
+import MealTemplates from "./MealTemplates";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface MealPlanFormProps {
   initialMealPlan?: MealPlan;
@@ -19,14 +20,26 @@ interface MealPlanFormProps {
 const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }) => {
   const { user } = useAppContext();
   const [date, setDate] = useState(initialMealPlan?.date || new Date().toISOString().split('T')[0]);
-  const [meals, setMeals] = useState<Meal[]>(initialMealPlan?.meals || []);
+  // Ensure all meals have a foods array
+  const [meals, setMeals] = useState<Meal[]>(
+    initialMealPlan?.meals?.map(meal => ({
+      ...meal,
+      foods: meal.foods || [] // Ensure foods is never undefined
+    })) || []
+  );
   const [notes, setNotes] = useState(initialMealPlan?.notes || '');
   const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null);
   const [isAddingMeal, setIsAddingMeal] = useState(false);
+  const [name, setName] = useState(initialMealPlan?.name || '');
 
   // Calcular total de nutrientes para o plano
   const totalNutrition = meals.reduce((acc, meal) => {
-    const mealNutrition = calculateMealNutrition(meal.foods);
+    const mealNutrition = calculateMealNutrition(
+      meal.foods.map(food => ({
+        ...food,
+        foodId: food.foodId.toString()
+      }))
+    );
     return {
       calories: acc.calories + mealNutrition.calories,
       protein: acc.protein + mealNutrition.protein,
@@ -55,11 +68,21 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
     e.preventDefault();
     const mealPlan = {
       id: initialMealPlan?.id || undefined,
+      name: name || `Plano de ${new Date(date).toLocaleDateString()}`, // Nome com fallback
       date,
       meals,
       notes
     };
     onSubmit(mealPlan);
+  };
+
+  const setEditingMealTemplate = (newMealTemplate: { id: string; name: string; time: string; foods: any[]; }) => {
+    // Add the new meal template to the meals array
+    setMeals([...meals, newMealTemplate]);
+    // Set the editing index to point to the newly added meal
+    setEditingMealIndex(meals.length);
+    // Close the "adding meal" state as we're now in edit mode
+    setIsAddingMeal(false);
   };
 
   return (
@@ -70,8 +93,27 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
             <CardTitle>Adicionar Nova Refeição</CardTitle>
           </CardHeader>
           <CardContent>
-            <MealForm 
-              onSubmit={handleAddMeal}
+            <MealTemplates 
+              onSelectTemplate={(template) => {
+                setIsAddingMeal(false);
+                // Criar uma "shell" de refeição baseada no template
+                const newMealTemplate = {
+                  id: `temp-${Date.now()}`,
+                  name: template.name,
+                  time: template.time,
+                  foods: []
+                };
+                
+                // Se for um template livre, vá direto para o MealForm
+                if (template.name === "Refeição Livre") {
+                  setEditingMealTemplate(newMealTemplate);
+                } else {
+                  // Se for um template predefinido, adicione-o diretamente
+                  // e vá para a seleção de alimentos
+                  setMeals([...meals, newMealTemplate]);
+                  setEditingMealIndex(meals.length); // Índice da nova refeição
+                }
+              }}
             />
             <Button 
               variant="outline" 
@@ -104,6 +146,17 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
+            <Label htmlFor="name">Nome do Plano</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Plano de Definição"
+              required
+            />
+          </div>
+
+          <div>
             <Label htmlFor="date">Data do Plano</Label>
             <Input
               id="date"
@@ -126,11 +179,16 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
                 <Plus size={16} className="mr-1" /> Adicionar Refeição
               </Button>
             </div>
-
+            
             {meals.length > 0 ? (
               <div className="space-y-4">
                 {meals.map((meal, index) => {
-                  const nutrition = calculateMealNutrition(meal.foods);
+                  const nutrition = calculateMealNutrition(
+                    (meal.foods || []).map(food => ({
+                      ...food,
+                      foodId: food.foodId.toString()
+                    }))
+                  );
                   
                   return (
                     <Card key={index} className="meal-card">
@@ -162,7 +220,7 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
                           </div>
                         </div>
                         
-                        {meal.foods.length > 0 && (
+                        {(meal.foods && meal.foods.length > 0) && (
                           <>
                             <div className="text-xs text-gray-500 mb-1">
                               {meal.foods.length} {meal.foods.length === 1 ? 'alimento' : 'alimentos'}

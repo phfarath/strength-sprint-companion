@@ -22,6 +22,24 @@ api.interceptors.request.use(config => {
   return config;
 });
 
+// Serviço para criar plano alimentar
+const createMealPlan = async (mealPlan) => {
+  const token = localStorage.getItem('auth_token');
+  
+  if (!token) {
+    throw new Error('Token de autenticação não encontrado');
+  }
+  
+  // Log para depuração
+  console.log('createMealPlan - dados enviados:', JSON.stringify(mealPlan, null, 2));
+  
+  return axios.post('/api/nutrition/meal-plans', mealPlan, {
+    headers: {
+      'x-auth-token': token
+    }
+  });
+};
+
 // Funções de API específicas para cada recurso
 export const apiServices = {
   // Users/Auth
@@ -44,10 +62,15 @@ export const apiServices = {
   
   // Foods/Nutrition
   getFoods: () => api.get('/nutrition/foods'),
-  getDietPlans: () => api.get('/nutrition/plans'),
-  createDietPlan: (plan) => api.post('/nutrition/plans', plan),
-  updateDietPlan: (id, plan) => api.put(`/nutrition/plans/${id}`, plan),
-  deleteDietPlan: (id) => api.delete(`/nutrition/plans/${id}`),
+  createFood: (foodData) => api.post('/nutrition/foods', foodData),
+  updateFood: (id, foodData) => api.put(`/nutrition/foods/${id}`, foodData),
+  deleteFood: (id) => api.delete(`/nutrition/foods/${id}`),
+  
+  // Meal plan management
+  getMealPlans: () => api.get('/nutrition/meal-plans'),
+  createMealPlan: (planData) => api.post('/nutrition/meal-plans', planData),
+  updateMealPlan: (id, data) => api.put(`/nutrition/meal-plans/${id}`, data),
+  deleteMealPlan: (id) => api.delete(`/nutrition/meal-plans/${id}`),
   
   // Progress
   getWorkoutSessions: () => api.get('/progress/workout'),

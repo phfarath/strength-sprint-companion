@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,25 +7,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Verifique este modelo no seu schema.prisma
 model User {
-  id            Int             @id @default(autoincrement())
-  name          String
-  email         String          @unique
-  password_hash String
-  weight        Float?
-  height        Float?
-  birthdate     String?
-  created_at    DateTime        @default(now())
-  workoutPlans    WorkoutPlan[]
-  workoutSessions WorkoutSession[]
-  dietPlans       DietPlan[]
+  id              Int              @id @default(autoincrement())
+  name            String
+  email           String           @unique
+  password_hash   String
+  weight          Float?
+  height          Float?
+  birthdate       String?
+  created_at      DateTime         @default(now())
+  nutritionGoals  NutritionGoals?
+  deviceData      DeviceData[]
   foodDiaries     FoodDiary[]
+  foods           Food[]
+  mealPlans       MealPlan[]
   pointsLogs      PointsLog[]
   userBadges      UserBadge[]
-  deviceData      DeviceData[]
   feedback        UserFeedback[]
-  nutritionGoals  NutritionGoals?
+  workoutPlans    WorkoutPlan[]
+  workoutSessions WorkoutSession[]
 
   @@map("users")
 }
@@ -48,14 +42,18 @@ model Exercise {
 }
 
 model Food {
-  id                Int              @id @default(autoincrement())
-  name              String
-  calories_per_100g Int
-  protein_per_100g  Decimal          @db.Decimal(5, 2)
-  carbs_per_100g    Decimal          @db.Decimal(5, 2)
-  fat_per_100g      Decimal          @db.Decimal(5, 2)
-  dietPlanFoods     DietPlanFood[]
-  foodDiaryEntries  FoodDiaryEntry[]
+  id               Int              @id @default(autoincrement())
+  name             String
+  weight           Float
+  calories         Float
+  protein          Float
+  carbs            Float
+  fat              Float
+  isPublic         Boolean          @default(false)
+  userId           Int
+  foodDiaryEntries FoodDiaryEntry[]
+  user             User             @relation(fields: [userId], references: [id])
+  mealFoods        MealFood[]
 
   @@map("foods")
 }
@@ -77,8 +75,8 @@ model WorkoutPlan {
   start_date DateTime              @db.Date
   end_date   DateTime              @db.Date
   created_at DateTime              @default(now())
-  user       User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   exercises  WorkoutPlanExercise[]
+  user       User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("workout_plans")
 }
@@ -91,8 +89,8 @@ model WorkoutPlanExercise {
   reps        Int
   load_kg     Decimal?    @db.Decimal(5, 2)
   notes       String?
-  plan        WorkoutPlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
   exercise    Exercise    @relation(fields: [exercise_id], references: [id])
+  plan        WorkoutPlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
 
   @@id([plan_id, exercise_id, day_of_week])
   @@map("workout_plan_exercises")
@@ -104,8 +102,8 @@ model WorkoutSession {
   date         DateTime                 @db.Date
   completed_at DateTime?
   notes        String?
-  user         User                     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   exercises    WorkoutSessionExercise[]
+  user         User                     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@map("workout_sessions")
 }
@@ -117,50 +115,11 @@ model WorkoutSessionExercise {
   actual_reps    Int
   actual_load_kg Decimal?       @db.Decimal(5, 2)
   comments       String?
-  session        WorkoutSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
   exercise       Exercise       @relation(fields: [exercise_id], references: [id])
+  session        WorkoutSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
 
   @@id([session_id, exercise_id])
   @@map("workout_session_exercises")
-}
-
-model DietPlan {
-  id         Int            @id @default(autoincrement())
-  user_id    Int
-  title      String
-  start_date DateTime       @db.Date
-  end_date   DateTime       @db.Date
-  created_at DateTime       @default(now())
-  user       User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  meals      DietPlanMeal[]
-  foods      DietPlanFood[]
-
-  @@map("diet_plans")
-}
-
-model DietPlanMeal {
-  plan_id        Int
-  meal_name      String
-  scheduled_time String?
-  notes          String?
-  plan           DietPlan       @relation(fields: [plan_id], references: [id], onDelete: Cascade)
-  foods          DietPlanFood[]
-
-  @@id([plan_id, meal_name])
-  @@map("diet_plan_meals")
-}
-
-model DietPlanFood {
-  plan_id   Int
-  meal_name String
-  food_id   Int
-  portion_g Decimal      @db.Decimal(7, 2)
-  plan      DietPlan     @relation(fields: [plan_id], references: [id], onDelete: Cascade)
-  meal      DietPlanMeal @relation(fields: [plan_id, meal_name], references: [plan_id, meal_name], onDelete: Cascade)
-  food      Food         @relation(fields: [food_id], references: [id])
-
-  @@id([plan_id, meal_name, food_id])
-  @@map("diet_plan_foods")
 }
 
 model FoodDiary {
@@ -200,8 +159,8 @@ model UserBadge {
   user_id    Int
   badge_id   Int
   awarded_at DateTime @default(now())
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   badge      Badge    @relation(fields: [badge_id], references: [id])
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@id([user_id, badge_id])
   @@map("user_badges")
@@ -227,17 +186,51 @@ model UserFeedback {
   sentiment  Int?
   comment    String
   created_at DateTime @default(now())
-  user       User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  user       User?    @relation(fields: [user_id], references: [id])
 
   @@map("user_feedback")
 }
 
 model NutritionGoals {
-  id       Int     @id @default(autoincrement())
+  id       Int  @id @default(autoincrement())
   calories Int
   protein  Int
   carbs    Int
   fat      Int
-  userId   Int     @unique
-  user     User    @relation(fields: [userId], references: [id])
+  userId   Int  @unique
+  user     User @relation(fields: [userId], references: [id])
+}
+
+model MealPlan {
+  id     Int     @id @default(autoincrement())
+  name   String
+  date   String
+  notes  String?
+  userId Int
+  user   User    @relation(fields: [userId], references: [id])
+  meals  Meal[]
+
+  @@map("meal_plans")
+}
+
+model Meal {
+  id         Int        @id @default(autoincrement())
+  name       String
+  time       String?
+  mealPlanId Int
+  mealFoods  MealFood[]
+  mealPlan   MealPlan   @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+
+  @@map("meals")
+}
+
+model MealFood {
+  id       Int   @id @default(autoincrement())
+  quantity Float
+  mealId   Int
+  foodId   Int
+  food     Food  @relation(fields: [foodId], references: [id])
+  meal     Meal  @relation(fields: [mealId], references: [id], onDelete: Cascade)
+
+  @@map("meal_foods")
 }

@@ -12,13 +12,37 @@ router.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
     
-    // Verificar se o usuário já existe
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
+    // Log dos dados recebidos (sem a senha)
+    console.log(`Tentando registrar usuário: ${name}, ${email}`);
+
+    // Verifica se todas as tabelas necessárias existem
+    try {
+      const tables = await prisma.$queryRaw`
+        SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+      `;
+      console.log('Tabelas no banco antes de verificar usuário:', tables);
+    } catch (error) {
+      console.error('Erro ao verificar tabelas:', error);
+    }
+
+    // Use tryCatch específico para a verificação de usuário
+    let existingUser = null;
+    try {
+      existingUser = await prisma.user.findUnique({
+        where: { email }
+      });
+      console.log('Resultado da verificação de usuário:', existingUser ? 'Encontrado' : 'Não encontrado');
+    } catch (error) {
+      console.error('Erro específico ao buscar usuário:', error);
+      return res.status(500).json({ 
+        message: 'Erro ao verificar usuário existente', 
+        error: error.message,
+        details: 'Possível problema com a tabela users'
+      });
+    }
     
     if (existingUser) {
-      return res.status(400).json({ message: 'Usuário já existe' });
+      return res.status(400).json({ message: 'Este email já está em uso' });
     }
     
     // Hash da senha

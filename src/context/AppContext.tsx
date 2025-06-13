@@ -63,9 +63,9 @@ interface AppContextType {
   updateWorkoutLog: (log: WorkoutLog) => void;
   
   // Funções de meal
-  addMealPlan: (plan: Omit<MealPlan, 'id'>) => void;
-  updateMealPlan: (plan: MealPlan) => void;
-  deleteMealPlan: (id: string) => void;
+  addMealPlan: (plan: Omit<MealPlan, 'id'>) => Promise<MealPlan>;
+  updateMealPlan: (plan: MealPlan) => Promise<MealPlan>;
+  deleteMealPlan: (id: string) => Promise<void>;
   
   // Funções de usuário
   updateUserGoals: (goals: User['nutritionGoals']) => void;
@@ -206,13 +206,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Modificar a função fetchMealPlans no AppContext
   const fetchMealPlans = async () => {
     try {
-      const response = await apiServices.getDietPlans();
-      setMealPlans(response.data);
+      console.log("Buscando planos alimentares do servidor...");
+      // Verificar token de autenticação
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.warn("Token de autenticação não encontrado");
+        setMealPlans([]);
+        return;
+      }
+      
+      const response = await apiServices.getMealPlans();
+      console.log("Planos alimentares recebidos:", response.data);
+      
+      if (Array.isArray(response.data)) {
+        setMealPlans(response.data);
+      } else {
+        console.error("Formato de resposta inesperado:", response.data);
+        setMealPlans([]);
+      }
     } catch (error) {
       console.error('Erro ao buscar planos alimentares:', error);
-      setMealPlans(mockMealPlans); // Fallback temporário
+      // Log detalhado para ajudar na depuração
+      if (error.response) {
+        console.error("Status:", error.response.status);
+        console.error("Dados do erro:", error.response.data);
+      }
+      setMealPlans([]);
     }
   };
 
@@ -340,32 +362,129 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Funções para gerenciar planos de refeição
-  const addMealPlan = (plan: Omit<MealPlan, 'id'>) => {
-    const newPlan: MealPlan = {
-      ...plan,
-      id: `mp${Date.now()}`
-    };
-    setMealPlans([...mealPlans, newPlan]);
-    toast({
-      title: "Plano alimentar adicionado",
-      description: `Seu plano alimentar para ${new Date(plan.date).toLocaleDateString()} foi adicionado!`,
-    });
+  const addMealPlan = async (plan: Omit<MealPlan, 'id'>) => {
+    try {
+      // Log dos dados originais
+      console.log('Dados originais do plano:', JSON.stringify(plan, null, 2));
+      
+      // Normalizar IDs para números e remover IDs temporários
+      const normalizedPlan = {
+        ...plan,
+        meals: plan.meals.map(meal => {
+          // Remova o ID temporário para novas refeições
+          const { id, ...mealWithoutId } = meal;
+          
+          return {
+            ...mealWithoutId, // Envie sem ID para o backend gerar
+            foods: meal.foods.map(food => {
+              // Converter para número para enviar para a API
+              let foodId = food.foodId;
+              
+              if (typeof foodId === 'string') {
+                // Converter para número
+                foodId = parseInt(foodId, 10);
+                
+                if (isNaN(foodId)) {
+                  console.error(`ID de alimento inválido: ${food.foodId}`);
+                  return null;
+                }
+              }
+              
+              return {
+                foodId: foodId, // Enviar como número
+                servings: parseFloat(food.servings.toString())
+              };
+            }).filter(food => food !== null) // Remover itens inválidos
+          };
+        })
+      };
+      
+      console.log('Enviando plano normalizado para API:', JSON.stringify(normalizedPlan, null, 2));
+      
+      const response = await apiServices.createMealPlan(normalizedPlan);
+      console.log('Resposta da API:', response.data);
+      
+      // Verificar se a resposta tem refeições
+      if (response.data.meals) {
+        console.log(`Recebido do servidor: ${response.data.meals.length} refeições`);
+      } else {
+        console.warn('Resposta do servidor não contém refeições');
+      }
+      
+      // Atualizar o estado com os dados retornados
+      const newMealPlan = response.data;
+      setMealPlans([...mealPlans, newMealPlan]);
+      
+      toast({
+        title: "Plano alimentar criado",
+        description: `Seu plano alimentar '${newMealPlan.name}' foi criado com sucesso!`,
+      });
+      
+      return newMealPlan;
+    } catch (error) {
+      console.error("Erro ao criar plano alimentar:", error);
+      // Log detalhado do erro
+      if (error.response) {
+        console.error("Status:", error.response.status);
+        console.error("Dados do erro:", error.response.data);
+      }
+      
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar o plano alimentar.",
+        variant: "destructive"
+      });
+      throw error;
+    }
   };
 
-  const updateMealPlan = (plan: MealPlan) => {
-    setMealPlans(mealPlans.map(mp => (mp.id === plan.id ? plan : mp)));
-    toast({
-      title: "Plano alimentar atualizado",
-      description: `Seu plano alimentar foi atualizado com sucesso!`,
-    });
+  const updateMealPlan = async (plan: MealPlan) => {
+    try {
+      console.log("Iniciando atualização do plano alimentar:", plan.id);
+      console.log("Dados enviados:", plan);
+      
+      const response = await apiServices.updateMealPlan(plan.id, plan);
+      console.log("Resposta do servidor após atualização:", response.data);
+      
+      const updatedPlan = response.data;
+      
+      setMealPlans(mealPlans.map(mp => (mp.id === plan.id ? updatedPlan : mp)));
+      toast({
+        title: "Plano alimentar atualizado",
+        description: `Seu plano alimentar '${plan.name}' foi atualizado com sucesso!`,
+      });
+      
+      return updatedPlan;
+    } catch (error) {
+      console.error("Erro ao atualizar plano alimentar:", error);
+      console.error("Detalhes do erro:", error.response?.data || "Sem detalhes");
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o plano alimentar.",
+        variant: "destructive"
+      });
+      throw error;
+    }
   };
 
-  const deleteMealPlan = (id: string) => {
-    setMealPlans(mealPlans.filter(mp => mp.id !== id));
-    toast({
-      title: "Plano alimentar removido",
-      description: `O plano alimentar foi removido com sucesso!`,
-    });
+  const deleteMealPlan = async (id: string) => {
+    try {
+      await apiServices.deleteMealPlan(id);
+      
+      setMealPlans(mealPlans.filter(mp => mp.id !== id));
+      toast({
+        title: "Plano alimentar removido",
+        description: `O plano alimentar foi removido com sucesso!`,
+      });
+    } catch (error) {
+      console.error("Erro ao remover plano alimentar:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível remover o plano alimentar.",
+        variant: "destructive"
+      });
+      throw error;
+    }
   };
 
   // Funções para gerenciar perfil do usuário
@@ -466,6 +585,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => clearTimeout(workoutNotificationTimeout);
   }, []);
 
+  // Garantir que essa função seja chamada ao carregar o componente
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchWorkoutPlans();
+      fetchWorkoutLogs();
+      fetchMealPlans(); // Garantir que isso seja chamado
+      fetchFoods();
+    }
+  }, [isAuthenticated]);
+
+  // Função para adicionar um alimento
+  const addFood = async (foodData) => {
+    try {
+      const response = await apiServices.createFood(foodData);
+      setFoods(prev => [...prev, response.data]);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao adicionar alimento:', error);
+      throw error;
+    }
+  };
+
+  // Função para atualizar um alimento
+  const updateFood = async (id, foodData) => {
+    try {
+      const response = await apiServices.updateFood(id, foodData);
+      setFoods(prev => prev.map(food => food.id === id ? response.data : food));
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao atualizar alimento:', error);
+      throw error;
+    }
+  };
+
+  // Função para excluir um alimento
+  const deleteFood = async (id) => {
+    try {
+      await apiServices.deleteFood(id);
+      setFoods(prev => prev.filter(food => food.id !== id));
+      return true;
+    } catch (error) {
+      console.error('Erro ao excluir alimento:', error);
+      throw error;
+    }
+  };
+
   const value = {
     // Dados
     exercises,
@@ -506,7 +671,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Funções utilitárias
     getTodaysWorkout,
     getCurrentDate,
-    isTodayWorkoutComplete
+    isTodayWorkoutComplete,
+
+    // Funções de alimentos
+    addFood,
+    updateFood,
+    deleteFood
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

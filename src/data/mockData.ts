@@ -1,4 +1,3 @@
-
 import { Exercise, Food, MealPlan, User, WorkoutPlan, WorkoutLog, Notification } from "../types";
 
 // Dados mockados de exercícios
@@ -85,6 +84,7 @@ export const foods: Food[] = [
 export const mealPlans: MealPlan[] = [
   {
     id: "mp1",
+    name: "Plano Alimentar Padrão",
     date: "2023-05-01",
     meals: [
       {
@@ -92,9 +92,9 @@ export const mealPlans: MealPlan[] = [
         name: "Café da Manhã",
         time: "08:00",
         foods: [
-          { foodId: "f5", servings: 0.5 }, // Aveia
-          { foodId: "f7", servings: 1 }, // Banana
-          { foodId: "f16", servings: 2 }, // Leite
+          { foodId: 5, servings: 0.5 }, // Aveia (was "f5")
+          { foodId: 7, servings: 1 }, // Banana (was "f7")
+          { foodId: 16, servings: 2 }, // Leite (was "f16")
         ]
       },
       {
@@ -102,10 +102,10 @@ export const mealPlans: MealPlan[] = [
         name: "Almoço",
         time: "12:00",
         foods: [
-          { foodId: "f1", servings: 1.5 }, // Frango
-          { foodId: "f2", servings: 1 }, // Arroz
-          { foodId: "f3", servings: 1 }, // Batata doce
-          { foodId: "f20", servings: 1 }, // Brócolis
+          { foodId: 1, servings: 1.5 }, // Frango (was "f1")
+          { foodId: 2, servings: 1 }, // Arroz (was "f2")
+          { foodId: 3, servings: 1 }, // Batata doce (was "f3")
+          { foodId: 20, servings: 1 }, // Brócolis (was "f20")
         ]
       },
       {
@@ -113,8 +113,8 @@ export const mealPlans: MealPlan[] = [
         name: "Lanche",
         time: "15:30",
         foods: [
-          { foodId: "f6", servings: 1 }, // Whey
-          { foodId: "f7", servings: 1 }, // Banana
+          { foodId: 6, servings: 1 }, // Whey (was "f6")
+          { foodId: 7, servings: 1 }, // Banana (was "f7")
         ]
       },
       {
@@ -122,10 +122,10 @@ export const mealPlans: MealPlan[] = [
         name: "Jantar",
         time: "19:00",
         foods: [
-          { foodId: "f19", servings: 1 }, // Salmão
-          { foodId: "f13", servings: 0.5 }, // Quinoa
-          { foodId: "f15", servings: 1 }, // Alface
-          { foodId: "f14", servings: 1 }, // Tomate
+          { foodId: 19, servings: 1 }, // Salmão (was "f19") 
+          { foodId: 13, servings: 0.5 }, // Quinoa (was "f13")
+          { foodId: 15, servings: 1 }, // Alface (was "f15")
+          { foodId: 14, servings: 1 }, // Tomate (was "f14")
         ]
       }
     ],
@@ -237,20 +237,72 @@ export const getTodaysMealPlan = (): MealPlan | undefined => {
   return mealPlans.find(plan => plan.date === currentDate);
 };
 
-// Função para calcular o total de calorias e macronutrientes de uma refeição
+// Atualizar a função calculateMealNutrition para lidar melhor com alimentos padrão e da API
 export const calculateMealNutrition = (meal: { foodId: string; servings: number }[]): { 
   calories: number; 
   protein: number; 
   carbs: number; 
   fat: number 
 } => {
+  // Se não há alimentos, retornar zeros
+  if (!meal || meal.length === 0) {
+    return { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  }
+  
+  // Melhor logs para depuração
+  console.log("Calculando nutrição para refeição:", meal);
+  
+  // Função para tentar encontrar alimento em várias fontes
+  const findFood = (foodId) => {
+    console.log("Procurando alimento com ID:", foodId, "tipo:", typeof foodId);
+    
+    // For numeric foodId, convert to string with "f" prefix for lookup
+    const lookupId = typeof foodId === 'number' ? `f${foodId}` : foodId;
+    
+    // First try to find the food with the direct ID
+    const apiFood = foods.find(f => f.id === lookupId);
+    if (apiFood) {
+      console.log("Encontrado em alimentos API:", apiFood);
+      return apiFood;
+    }
+    
+    // If not found and we have a numeric ID, try without the prefix
+    if (typeof foodId === 'number') {
+      const numericMatch = foods.find(f => {
+        // Extract numeric part from food ID string (e.g., "f5" -> 5)
+        if (typeof f.id === 'string' && f.id.startsWith('f')) {
+          const numPart = parseInt(f.id.substring(1), 10);
+          return numPart === foodId;
+        }
+        return false;
+      });
+      
+      if (numericMatch) {
+        console.log("Encontrado por correspondência numérica:", numericMatch);
+        return numericMatch;
+      }
+    }
+    
+    // Rest of the existing lookup logic...
+    // ...
+    
+    console.warn(`Alimento não encontrado: ${foodId}`);
+    return null;
+  };
+  
+  // Faz o cálculo da nutrição
   return meal.reduce((acc, item) => {
-    const food = foods.find(f => f.id === item.foodId);
+    const food = findFood(item.foodId);
     if (food) {
+      console.log(`Calculando para ${food.name} - servings: ${item.servings}`);
+      console.log(`Valores base: kcal=${food.calories}, p=${food.protein}, c=${food.carbs}, g=${food.fat}`);
+      
       acc.calories += food.calories * item.servings;
       acc.protein += food.protein * item.servings;
       acc.carbs += food.carbs * item.servings;
       acc.fat += food.fat * item.servings;
+      
+      console.log(`Acumulado: kcal=${acc.calories}, p=${acc.protein}, c=${acc.carbs}, g=${acc.fat}`);
     }
     return acc;
   }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
@@ -264,7 +316,12 @@ export const calculateDailyNutrition = (mealPlan: MealPlan): {
   fat: number;
 } => {
   return mealPlan.meals.reduce((acc, meal) => {
-    const mealNutrition = calculateMealNutrition(meal.foods);
+    // Convert foodId from number to string when passing to calculateMealNutrition
+    const mealNutrition = calculateMealNutrition(meal.foods.map(food => ({
+      ...food,
+      foodId: food.foodId.toString()
+    })));
+    
     acc.calories += mealNutrition.calories;
     acc.protein += mealNutrition.protein;
     acc.carbs += mealNutrition.carbs;

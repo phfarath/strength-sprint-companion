@@ -1,4 +1,3 @@
-
 export interface Exercise {
   id: string;
   name: string;
@@ -42,18 +41,21 @@ export interface Food {
   servingUnit: string;
 }
 
+interface MealFood {
+  foodId: number; // Change from string to number
+  servings: number;
+}
+
 export interface Meal {
   id: string;
   name: string;
   time: string;
-  foods: {
-    foodId: string;
-    servings: number;
-  }[];
+  foods: MealFood[];
 }
 
 export interface MealPlan {
   id: string;
+  name: string; // Adicionando a propriedade name
   date: string;
   meals: Meal[];
   notes?: string;
