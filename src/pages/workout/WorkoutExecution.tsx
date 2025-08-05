@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import WorkoutExecutionComponent from '@/components/workout/WorkoutExecution';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { WorkoutPlan } from '@/types';
 
 const WorkoutExecution = () => {
   const { workoutPlans, getTodaysWorkout } = useAppContext();
-  const [selectedWorkout, setSelectedWorkout] = useState<any>(null);
+  const [selectedWorkout, setSelectedWorkout] = useState<WorkoutPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 

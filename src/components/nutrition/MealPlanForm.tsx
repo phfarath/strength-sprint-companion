@@ -7,10 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import MealForm from './MealForm';
-import { calculateMealNutrition } from '@/data/mockData';
 import { Plus, Trash, Edit } from 'lucide-react';
 import MealTemplates from "./MealTemplates";
 import { AnimatePresence, motion } from "framer-motion";
+import { Switch } from '@/components/ui/switch';
 
 interface MealPlanFormProps {
   initialMealPlan?: MealPlan;
@@ -18,7 +18,7 @@ interface MealPlanFormProps {
 }
 
 const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }) => {
-  const { user } = useAppContext();
+  const { user, foods: allFoods } = useAppContext();
   const [date, setDate] = useState(initialMealPlan?.date || new Date().toISOString().split('T')[0]);
   // Ensure all meals have a foods array
   const [meals, setMeals] = useState<Meal[]>(
@@ -28,18 +28,28 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
     })) || []
   );
   const [notes, setNotes] = useState(initialMealPlan?.notes || '');
+  const [isPublic, setIsPublic] = useState(initialMealPlan?.isPublic || false);
   const [editingMealIndex, setEditingMealIndex] = useState<number | null>(null);
   const [isAddingMeal, setIsAddingMeal] = useState(false);
   const [name, setName] = useState(initialMealPlan?.name || '');
 
-  // Calcular total de nutrientes para o plano
+  const findFood = (id: string | number) =>
+    allFoods.find(f => f.id.toString() === id.toString() || `f${f.id}` === id.toString());
+
+  const calculateNutrition = (items: { foodId: string | number; servings: number }[]) =>
+    items.reduce((acc, item) => {
+      const food = findFood(item.foodId);
+      if (food) {
+        acc.calories += food.calories * item.servings;
+        acc.protein += food.protein * item.servings;
+        acc.carbs += food.carbs * item.servings;
+        acc.fat += food.fat * item.servings;
+      }
+      return acc;
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
   const totalNutrition = meals.reduce((acc, meal) => {
-    const mealNutrition = calculateMealNutrition(
-      meal.foods.map(food => ({
-        ...food,
-        foodId: food.foodId.toString()
-      }))
-    );
+    const mealNutrition = calculateNutrition(meal.foods);
     return {
       calories: acc.calories + mealNutrition.calories,
       protein: acc.protein + mealNutrition.protein,
@@ -68,15 +78,16 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
     e.preventDefault();
     const mealPlan = {
       id: initialMealPlan?.id || undefined,
-      name: name || `Plano de ${new Date(date).toLocaleDateString()}`, // Nome com fallback
+      name: name || `Plano de ${new Date(date).toLocaleDateString()}`,
       date,
       meals,
-      notes
+      notes,
+      isPublic
     };
     onSubmit(mealPlan);
   };
 
-  const setEditingMealTemplate = (newMealTemplate: { id: string; name: string; time: string; foods: any[]; }) => {
+  const setEditingMealTemplate = (newMealTemplate: { id: string; name: string; time: string; foods: Meal['foods']; }) => {
     // Add the new meal template to the meals array
     setMeals([...meals, newMealTemplate]);
     // Set the editing index to point to the newly added meal
@@ -167,6 +178,11 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
             />
           </div>
 
+          <div className="flex items-center space-x-2">
+            <Switch id="isPublic" checked={isPublic} onCheckedChange={setIsPublic} />
+            <Label htmlFor="isPublic">Plano público</Label>
+          </div>
+
           <div>
             <div className="flex justify-between items-center mb-2">
               <Label>Refeições</Label>
@@ -183,12 +199,7 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
             {meals.length > 0 ? (
               <div className="space-y-4">
                 {meals.map((meal, index) => {
-                  const nutrition = calculateMealNutrition(
-                    (meal.foods || []).map(food => ({
-                      ...food,
-                      foodId: food.foodId.toString()
-                    }))
-                  );
+                  const nutrition = calculateNutrition(meal.foods || []);
                   
                   return (
                     <Card key={index} className="meal-card">

@@ -9,7 +9,6 @@ import MealPlanForm from '@/components/nutrition/MealPlanForm';
 import FoodModal from '@/components/nutrition/FoodModal';
 import { MealPlan } from '@/types';
 import { Edit, Trash, Plus, Calendar, Search } from 'lucide-react';
-import { calculateDailyNutrition } from '@/data/mockData';
 import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { apiServices } from '@/services/api';
@@ -224,7 +223,7 @@ const MealPlanning = () => {
               {sortedMealPlans.length > 0 ? (
                 <div className="space-y-6">
                   {sortedMealPlans.map((mealPlan) => {
-                    const nutrition = calculateDailyNutrition(mealPlan);
+                    const nutrition = mealPlan.totalNutrition || { calories: 0, protein: 0, carbs: 0, fat: 0 };
                     
                     return (
                       <motion.div

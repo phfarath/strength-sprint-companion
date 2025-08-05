@@ -14,12 +14,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { apiServices } from '@/services/api';
 import { motion } from 'framer-motion';
+import { Food } from '@/types';
 
 interface FoodModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  initialFood?: any;
-  onFoodCreated?: (food: any) => void;
+  initialFood?: Food;
+  onFoodCreated?: (food: Food) => void;
 }
 
 const FoodModal: React.FC<FoodModalProps> = ({ 

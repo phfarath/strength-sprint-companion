@@ -44,6 +44,7 @@ export interface Food {
 interface MealFood {
   foodId: number; // Change from string to number
   servings: number;
+  food?: Food;
 }
 
 export interface Meal {
@@ -51,6 +52,12 @@ export interface Meal {
   name: string;
   time: string;
   foods: MealFood[];
+  nutrition?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
 }
 
 export interface MealPlan {
@@ -59,6 +66,13 @@ export interface MealPlan {
   date: string;
   meals: Meal[];
   notes?: string;
+  isPublic?: boolean;
+  totalNutrition?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  };
 }
 
 export interface NutritionGoals {

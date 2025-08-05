@@ -4,6 +4,31 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const auth = require('../middleware/auth');
 
+function calculateMealNutrition(meal) {
+  return meal.mealFoods.reduce((totals, mf) => {
+    if (mf.food) {
+      totals.calories += mf.food.calories * mf.quantity;
+      totals.protein += mf.food.protein * mf.quantity;
+      totals.carbs += mf.food.carbs * mf.quantity;
+      totals.fat += mf.food.fat * mf.quantity;
+    }
+    return totals;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+}
+
+function attachNutrition(plan) {
+  const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+  plan.meals = (plan.meals || []).map(meal => {
+    const nutrition = calculateMealNutrition(meal);
+    totals.calories += nutrition.calories;
+    totals.protein += nutrition.protein;
+    totals.carbs += nutrition.carbs;
+    totals.fat += nutrition.fat;
+    return { ...meal, nutrition };
+  });
+  return { ...plan, totalNutrition: totals };
+}
+
 // Corrigindo a rota GET /foods
 router.get('/foods', auth, async (req, res) => {
   try {
@@ -170,11 +195,44 @@ router.get('/meal-plans', auth, async (req, res) => {
     });
     
     console.log(`Encontrados ${mealPlans.length} planos alimentares`);
-    res.json(mealPlans);
+    const enriched = mealPlans.map(attachNutrition);
+    res.json(enriched);
   } catch (error) {
     console.error('Erro completo ao buscar planos alimentares:', error);
     res.status(500).json({ 
       message: 'Erro ao obter planos alimentares',
+      error: error.toString()
+    });
+  }
+});
+
+// Planos alimentares públicos
+router.get('/meal-plans/public', auth, async (req, res) => {
+  try {
+    const mealPlans = await prisma.mealPlan.findMany({
+      where: { isPublic: true },
+      include: {
+        meals: {
+          include: {
+            mealFoods: {
+              include: {
+                food: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        date: 'desc'
+      }
+    });
+
+    const enriched = mealPlans.map(attachNutrition);
+    res.json(enriched);
+  } catch (error) {
+    console.error('Erro ao buscar planos alimentares públicos:', error);
+    res.status(500).json({
+      message: 'Erro ao obter planos públicos',
       error: error.toString()
     });
   }
@@ -185,7 +243,7 @@ router.get('/meal-plans', auth, async (req, res) => {
 router.post('/meal-plans', auth, async (req, res) => {
   try {
     console.log('Criando plano alimentar, dados recebidos:', JSON.stringify(req.body, null, 2));
-    const { name, date, meals, notes } = req.body;
+    const { name, date, meals, notes, isPublic } = req.body;
     
     if (!name || !date) {
       return res.status(400).json({ message: 'Nome e data são obrigatórios' });
@@ -204,6 +262,7 @@ router.post('/meal-plans', auth, async (req, res) => {
           name,
           date,
           notes: notes || null,
+          isPublic: Boolean(isPublic),
           userId
         }
       });
@@ -283,7 +342,7 @@ router.post('/meal-plans', auth, async (req, res) => {
     });
     
     console.log('Plano alimentar criado com sucesso');
-    res.status(201).json(mealPlan);
+    res.status(201).json(attachNutrition(mealPlan));
   } catch (error) {
     console.error('Erro completo ao criar plano alimentar:', error);
     console.error('Stack trace:', error.stack);
@@ -301,7 +360,7 @@ router.put('/meal-plans/:id', auth, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const userId = parseInt(req.user.id);
-    const { name, date, meals } = req.body;
+    const { name, date, meals, notes, isPublic } = req.body;
     
     console.log(`Tentando atualizar plano alimentar com ID: ${id}`);
     console.log('Dados recebidos:', JSON.stringify(meals, null, 2));
@@ -366,6 +425,8 @@ router.put('/meal-plans/:id', auth, async (req, res) => {
       data: {
         name,
         date,
+        notes: notes || null,
+        isPublic: Boolean(isPublic),
         meals: {
           create: validMeals.map(meal => ({
             name: meal.name || 'Refeição',
@@ -393,7 +454,7 @@ router.put('/meal-plans/:id', auth, async (req, res) => {
     });
     
     console.log('Plano alimentar atualizado com sucesso:', updatedPlan.id);
-    res.json(updatedPlan);
+    res.json(attachNutrition(updatedPlan));
   } catch (error) {
     console.error('Erro detalhado ao atualizar plano:', error);
     res.status(500).json({ 
