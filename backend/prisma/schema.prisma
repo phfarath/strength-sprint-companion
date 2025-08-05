@@ -206,6 +206,7 @@ model MealPlan {
   name   String
   date   String
   notes  String?
+  isPublic Boolean @default(false)
   userId Int
   user   User    @relation(fields: [userId], references: [id])
   meals  Meal[]

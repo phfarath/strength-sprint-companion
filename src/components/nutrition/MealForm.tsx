@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Plus, Trash } from 'lucide-react';
-import { calculateMealNutrition } from '@/data/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
 import FoodModal from './FoodModal';
 import { apiServices } from '@/services/api';
@@ -87,7 +86,18 @@ const MealForm: React.FC<MealFormProps> = ({ initialMeal, onSubmit }) => {
     }
   };
 
-  const nutrition = calculateMealNutrition(selectedFoods);
+  const calculateNutrition = () => selectedFoods.reduce((acc, item) => {
+    const food = foods.find(f => normalizeId(f.id) === normalizeId(item.foodId));
+    if (food) {
+      acc.calories += food.calories * item.servings;
+      acc.protein += food.protein * item.servings;
+      acc.carbs += food.carbs * item.servings;
+      acc.fat += food.fat * item.servings;
+    }
+    return acc;
+  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+  const nutrition = calculateNutrition();
 
   const handleAddFood = async (foodId: string) => {
     console.log("handleAddFood recebeu ID:", foodId);

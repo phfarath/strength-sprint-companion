@@ -103,6 +103,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const transformMealPlan = (plan: any): MealPlan => ({
+    ...plan,
+    meals: (plan.meals || []).map((meal: any) => ({
+      id: meal.id,
+      name: meal.name,
+      time: meal.time,
+      foods: (meal.mealFoods || []).map((mf: any) => ({
+        foodId: mf.foodId,
+        servings: mf.quantity,
+        food: mf.food
+      }))
+    }))
+  });
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+
   // Verificar autenticação na inicialização
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
@@ -222,7 +238,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log("Planos alimentares recebidos:", response.data);
       
       if (Array.isArray(response.data)) {
-        setMealPlans(response.data);
+        const transformed = response.data.map(transformMealPlan);
+        setMealPlans(transformed);
       } else {
         console.error("Formato de resposta inesperado:", response.data);
         setMealPlans([]);
@@ -370,6 +387,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Normalizar IDs para números e remover IDs temporários
       const normalizedPlan = {
         ...plan,
+        isPublic: plan.isPublic ?? false,
         meals: plan.meals.map(meal => {
           // Remova o ID temporário para novas refeições
           const { id, ...mealWithoutId } = meal;
@@ -412,7 +430,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       
       // Atualizar o estado com os dados retornados
-      const newMealPlan = response.data;
+      const newMealPlan = transformMealPlan(response.data);
       setMealPlans([...mealPlans, newMealPlan]);
       
       toast({
@@ -443,10 +461,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log("Iniciando atualização do plano alimentar:", plan.id);
       console.log("Dados enviados:", plan);
       
-      const response = await apiServices.updateMealPlan(plan.id, plan);
+      const normalizedPlan = {
+        ...plan,
+        isPublic: plan.isPublic ?? false,
+        meals: plan.meals.map(meal => ({
+          ...meal,
+          foods: meal.foods.map(food => ({
+            foodId: typeof food.foodId === 'string' ? parseInt(food.foodId, 10) : food.foodId,
+            servings: parseFloat(food.servings.toString())
+          }))
+        }))
+      };
+
+      const response = await apiServices.updateMealPlan(plan.id, normalizedPlan);
       console.log("Resposta do servidor após atualização:", response.data);
-      
-      const updatedPlan = response.data;
+
+      const updatedPlan = transformMealPlan(response.data);
       
       setMealPlans(mealPlans.map(mp => (mp.id === plan.id ? updatedPlan : mp)));
       toast({

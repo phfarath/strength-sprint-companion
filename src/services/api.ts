@@ -68,6 +68,7 @@ export const apiServices = {
   
   // Meal plan management
   getMealPlans: () => api.get('/nutrition/meal-plans'),
+  getPublicMealPlans: () => api.get('/nutrition/meal-plans/public'),
   createMealPlan: (planData) => api.post('/nutrition/meal-plans', planData),
   updateMealPlan: (id, data) => api.put(`/nutrition/meal-plans/${id}`, data),
   deleteMealPlan: (id) => api.delete(`/nutrition/meal-plans/${id}`),

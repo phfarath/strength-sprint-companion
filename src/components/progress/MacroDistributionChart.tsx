@@ -69,10 +69,10 @@ const MacroDistributionChart = () => {
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: number, name: string, props: any) => {
+                formatter={(value: number, name: string, props: { payload: { macroValue: number; value: number; name: string } }) => {
                   const entry = props.payload;
                   return [
-                    `${entry.macroValue}g (${getPercent(entry.value)}%)`, 
+                    `${entry.macroValue}g (${getPercent(entry.value)}%)`,
                     entry.name
                   ];
                 }}

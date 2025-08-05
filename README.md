@@ -71,3 +71,21 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Backend setup
+
+The backend uses PostgreSQL via Prisma. To connect to a Neon database:
+
+1. Copy `backend/.env.example` to `backend/.env` and fill in your `DATABASE_URL` (from Neon) and a `JWT_SECRET`.
+2. Apply database migrations:
+
+```sh
+cd backend
+npx prisma migrate deploy
+```
+
+3. Start the API server:
+
+```sh
+npm start
+```
