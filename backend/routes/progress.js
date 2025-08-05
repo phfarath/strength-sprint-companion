@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
+const auth = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 
@@ -35,7 +36,7 @@ router.get('/workout', auth, async (req, res) => {
 });
 
 // Get food diary entries for user
-router.get('/nutrition', async (req, res) => {
+router.get('/nutrition', auth, async (req, res) => {
   try {
     const userId = req.user?.id;
     
@@ -65,7 +66,7 @@ router.get('/nutrition', async (req, res) => {
 });
 
 // Add device data
-router.post('/device', async (req, res) => {
+router.post('/device', auth, async (req, res) => {
   try {
     const userId = req.user?.id;
     

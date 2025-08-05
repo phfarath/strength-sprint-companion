@@ -263,7 +263,7 @@ router.post('/meal-plans', auth, async (req, res) => {
           date,
           notes: notes || null,
           isPublic: Boolean(isPublic),
-          userId
+          user: { connect: { id: userId } }
         }
       });
       
@@ -515,7 +515,7 @@ router.post('/mealplans', auth, async (req, res) => {
       data: {
         name,
         description,
-        is_public: isPublic ?? false, // Correção: usar is_public
+        isPublic: isPublic ?? false,
         user: { connect: { id: userId } },
       },
     });
