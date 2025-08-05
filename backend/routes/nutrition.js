@@ -505,4 +505,99 @@ router.delete('/meal-plans/:id', auth, async (req, res) => {
   }
 });
 
+// Rota para criar um novo plano alimentar
+router.post('/mealplans', auth, async (req, res) => {
+  const { name, description, isPublic } = req.body;
+  const userId = parseInt(req.user.id);
+
+  try {
+    const mealPlan = await prisma.mealPlan.create({
+      data: {
+        name,
+        description,
+        is_public: isPublic ?? false, // Correção: usar is_public
+        user: { connect: { id: userId } },
+      },
+    });
+    // Garante que o plano retornado tenha a estrutura de nutrição
+    res.status(201).json(attachNutrition({ ...mealPlan, meals: [] }));
+  } catch (error) {
+    console.error('Erro ao criar plano alimentar:', error);
+    res.status(500).json({ message: 'Erro interno do servidor', error: error.message });
+  }
+});
+
+// Rota para adicionar uma refeição a um plano alimentar
+router.post('/mealplans/:planId/meals', auth, async (req, res) => {
+  const { planId } = req.params;
+  const { name, time } = req.body;
+
+  try {
+    const meal = await prisma.meal.create({
+      data: {
+        name,
+        time,
+        plan: { connect: { id: parseInt(planId) } },
+      },
+    });
+    res.status(201).json(meal);
+  } catch (error) {
+    console.error(`Erro ao adicionar refeição ao plano ${planId}:`, error);
+    res.status(500).json({ message: 'Erro interno do servidor', error: error.message });
+  }
+});
+
+// Rota para adicionar um alimento a uma refeição
+router.post('/meals/:mealId/foods', auth, async (req, res) => {
+  const { mealId } = req.params;
+  const { foodId, quantity } = req.body;
+
+  try {
+    const mealFood = await prisma.mealFood.create({
+      data: {
+        meal: { connect: { id: parseInt(mealId) } },
+        food: { connect: { id: parseInt(foodId) } },
+        quantity: parseFloat(quantity),
+      },
+    });
+    res.status(201).json(mealFood);
+  } catch (error) {
+    console.error(`Erro ao adicionar alimento à refeição ${mealId}:`, error);
+    res.status(500).json({ message: 'Erro interno do servidor', error: error.message });
+  }
+});
+
+// Rota para remover um alimento de uma refeição
+router.delete('/mealfoods/:mealFoodId', auth, async (req, res) => {
+  const { mealFoodId } = req.params;
+  try {
+    await prisma.mealFood.delete({
+      where: { id: parseInt(mealFoodId) },
+    });
+    res.status(204).send();
+  } catch (error) {
+    console.error(`Erro ao remover mealFood ${mealFoodId}:`, error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+});
+
+// Rota para remover uma refeição de um plano
+router.delete('/meals/:mealId', auth, async (req, res) => {
+  const { mealId } = req.params;
+  try {
+    // Deleta primeiro os alimentos associados à refeição
+    await prisma.mealFood.deleteMany({
+      where: { meal_id: parseInt(mealId) },
+    });
+    // Depois deleta a refeição
+    await prisma.meal.delete({
+      where: { id: parseInt(mealId) },
+    });
+    res.status(204).send();
+  } catch (error) {
+    console.error(`Erro ao remover refeição ${mealId}:`, error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+});
+
 module.exports = router;

@@ -5,7 +5,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 // Get workout sessions for user
-router.get('/workout', async (req, res) => {
+router.get('/workout', auth, async (req, res) => {
   try {
     const userId = req.user?.id;
     
