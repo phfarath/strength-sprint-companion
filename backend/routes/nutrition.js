@@ -18,7 +18,7 @@ function calculateMealNutrition(meal) {
 
 function attachNutrition(plan) {
   const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
-  plan.meals = (plan.meals || []).map(meal => {
+  const meals = (plan.meals || []).map(meal => {
     const nutrition = calculateMealNutrition(meal);
     totals.calories += nutrition.calories;
     totals.protein += nutrition.protein;
@@ -26,7 +26,13 @@ function attachNutrition(plan) {
     totals.fat += nutrition.fat;
     return { ...meal, nutrition };
   });
-  return { ...plan, totalNutrition: totals };
+  const { is_public, ...rest } = plan;
+  return {
+    ...rest,
+    meals,
+    isPublic: plan.isPublic ?? is_public ?? false,
+    totalNutrition: totals,
+  };
 }
 
 // Corrigindo a rota GET /foods
@@ -210,7 +216,7 @@ router.get('/meal-plans', auth, async (req, res) => {
 router.get('/meal-plans/public', auth, async (req, res) => {
   try {
     const mealPlans = await prisma.mealPlan.findMany({
-      where: { isPublic: true },
+      where: { is_public: true },
       include: {
         meals: {
           include: {
@@ -262,7 +268,7 @@ router.post('/meal-plans', auth, async (req, res) => {
           name,
           date,
           notes: notes || null,
-          isPublic: Boolean(isPublic),
+          is_public: Boolean(isPublic),
           userId
         }
       });
@@ -426,7 +432,7 @@ router.put('/meal-plans/:id', auth, async (req, res) => {
         name,
         date,
         notes: notes || null,
-        isPublic: Boolean(isPublic),
+        is_public: Boolean(isPublic),
         meals: {
           create: validMeals.map(meal => ({
             name: meal.name || 'Refeição',
