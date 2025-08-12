@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '@/context/AppContext';
 import { MealPlan, Meal } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import MealForm from './MealForm';
 import { Plus, Trash, Edit } from 'lucide-react';
-import MealTemplates from "./MealTemplates";
-import { AnimatePresence, motion } from "framer-motion";
+import MealTemplates from './MealTemplates';
 import { Switch } from '@/components/ui/switch';
 
 interface MealPlanFormProps {
@@ -18,13 +17,15 @@ interface MealPlanFormProps {
 }
 
 const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }) => {
-  const { user, foods: allFoods } = useAppContext();
-  const [date, setDate] = useState(initialMealPlan?.date || new Date().toISOString().split('T')[0]);
-  // Ensure all meals have a foods array
+  const { user, foods: contextFoods } = useAppContext();
+
+  const [date, setDate] = useState(
+    initialMealPlan?.date || new Date().toISOString().split('T')[0]
+  );
   const [meals, setMeals] = useState<Meal[]>(
     initialMealPlan?.meals?.map(meal => ({
       ...meal,
-      foods: meal.foods || [] // Ensure foods is never undefined
+      foods: (meal as any).foods || []
     })) || []
   );
   const [notes, setNotes] = useState(initialMealPlan?.notes || '');
@@ -33,66 +34,124 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
   const [isAddingMeal, setIsAddingMeal] = useState(false);
   const [name, setName] = useState(initialMealPlan?.name || '');
 
-  const findFood = (id: string | number) =>
-    allFoods.find(f => f.id.toString() === id.toString() || `f${f.id}` === id.toString());
+  // Normalizar refeições vindas do backend (mealFoods -> foods)
+  useEffect(() => {
+    if (initialMealPlan) {
+      setMeals(
+        (initialMealPlan.meals || []).map(m => {
+          const foods =
+            (m as any).foods && (m as any).foods.length
+              ? (m as any).foods
+              : (((m as any).mealFoods || []) as any[]).map(mf => ({
+                  foodId:
+                    typeof mf.foodId === 'string'
+                      ? parseInt(mf.foodId, 10)
+                      : mf.foodId ?? mf.food?.id,
+                  servings: parseFloat(
+                    (mf.servings ?? mf.quantity ?? 1).toString()
+                  )
+                }));
+          return {
+            ...m,
+            foods: foods.filter((f: any) => !isNaN(Number(f.foodId)))
+          };
+        })
+      );
+    }
+  }, [initialMealPlan]);
 
-  const calculateNutrition = (items: { foodId: string | number; servings: number }[]) =>
-    items.reduce((acc, item) => {
-      const food = findFood(item.foodId);
-      if (food) {
-        acc.calories += food.calories * item.servings;
-        acc.protein += food.protein * item.servings;
-        acc.carbs += food.carbs * item.servings;
-        acc.fat += food.fat * item.servings;
-      }
-      return acc;
-    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  // Mapa de alimentos para lookup
+  const foodsMap = React.useMemo(
+    () => new Map(contextFoods.map(f => [Number(f.id), f])),
+    [contextFoods]
+  );
 
-  const totalNutrition = meals.reduce((acc, meal) => {
-    const mealNutrition = calculateNutrition(meal.foods);
-    return {
-      calories: acc.calories + mealNutrition.calories,
-      protein: acc.protein + mealNutrition.protein,
-      carbs: acc.carbs + mealNutrition.carbs,
-      fat: acc.fat + mealNutrition.fat
-    };
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  // Nutrição de uma refeição
+  const computeMealNutrition = React.useCallback(
+    (meal: any) =>
+      (meal.foods || []).reduce(
+        (acc: any, f: any) => {
+          const foodData = foodsMap.get(Number(f.foodId));
+            if (foodData) {
+              const servings =
+                parseFloat(f.servings?.toString() || '1') || 1;
+              acc.calories += foodData.calories * servings;
+              acc.protein += foodData.protein * servings;
+              acc.carbs += foodData.carbs * servings;
+              acc.fat += foodData.fat * servings;
+            }
+          return acc;
+        },
+        { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      ),
+    [foodsMap]
+  );
+
+  // Refeições calculadas
+  const computedMeals = React.useMemo(
+    () => meals.map(m => ({ ...m, nutrition: computeMealNutrition(m) })),
+    [meals, computeMealNutrition]
+  );
+
+  // Totais do plano
+  const planTotals = React.useMemo(
+    () =>
+      computedMeals.reduce(
+        (acc, m: any) => {
+          acc.calories += m.nutrition.calories;
+          acc.protein += m.nutrition.protein;
+          acc.carbs += m.nutrition.carbs;
+          acc.fat += m.nutrition.fat;
+          return acc;
+        },
+        { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      ),
+    [computedMeals]
+  );
 
   const handleAddMeal = (meal: Meal) => {
-    setMeals([...meals, meal]);
+    setMeals(prev => [...prev, meal]);
     setIsAddingMeal(false);
   };
 
   const handleUpdateMeal = (meal: Meal, index: number) => {
-    const updatedMeals = [...meals];
-    updatedMeals[index] = meal;
-    setMeals(updatedMeals);
+    setMeals(prev => prev.map((m, i) => (i === index ? meal : m)));
     setEditingMealIndex(null);
   };
 
   const handleRemoveMeal = (index: number) => {
-    setMeals(meals.filter((_, i) => i !== index));
+    setMeals(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const mealPlan = {
-      id: initialMealPlan?.id || undefined,
-      name: name || `Plano de ${new Date(date).toLocaleDateString()}`,
+    const normalizedMeals = computedMeals.map(m => ({
+      ...(m.id && { id: m.id }),
+      name: (m as any).name,
+      time: (m as any).time,
+      foods: (m as any).foods.map((f: any) => ({
+        foodId: Number(f.foodId),
+        servings: parseFloat(f.servings?.toString() || '1')
+      }))
+    }));
+    onSubmit({
+      ...(initialMealPlan?.id && { id: initialMealPlan.id }),
+      name,
       date,
-      meals,
       notes,
-      isPublic
-    };
-    onSubmit(mealPlan);
+      isPublic,
+      meals: normalizedMeals
+    } as any);
   };
 
-  const setEditingMealTemplate = (newMealTemplate: { id: string; name: string; time: string; foods: Meal['foods']; }) => {
-    // Add the new meal template to the meals array
-    setMeals([...meals, newMealTemplate]);
-    // Set the editing index to point to the newly added meal
+  const setEditingMealTemplate = (newMealTemplate: {
+    id: string;
+    name: string;
+    time: string;
+    foods: Meal['foods'];
+  }) => {
+    setMeals(prev => [...prev, newMealTemplate]);
     setEditingMealIndex(meals.length);
-    // Close the "adding meal" state as we're now in edit mode
     setIsAddingMeal(false);
   };
 
@@ -104,30 +163,25 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
             <CardTitle>Adicionar Nova Refeição</CardTitle>
           </CardHeader>
           <CardContent>
-            <MealTemplates 
-              onSelectTemplate={(template) => {
+            <MealTemplates
+              onSelectTemplate={template => {
                 setIsAddingMeal(false);
-                // Criar uma "shell" de refeição baseada no template
                 const newMealTemplate = {
                   id: `temp-${Date.now()}`,
                   name: template.name,
                   time: template.time,
                   foods: []
                 };
-                
-                // Se for um template livre, vá direto para o MealForm
-                if (template.name === "Refeição Livre") {
+                if (template.name === 'Refeição Livre') {
                   setEditingMealTemplate(newMealTemplate);
                 } else {
-                  // Se for um template predefinido, adicione-o diretamente
-                  // e vá para a seleção de alimentos
-                  setMeals([...meals, newMealTemplate]);
-                  setEditingMealIndex(meals.length); // Índice da nova refeição
+                  setMeals(prev => [...prev, newMealTemplate]);
+                  setEditingMealIndex(meals.length);
                 }
               }}
             />
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="mt-4 w-full"
               onClick={() => setIsAddingMeal(false)}
             >
@@ -140,19 +194,19 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
           <CardHeader>
             <CardTitle>Editar Refeição</CardTitle>
           </CardHeader>
-          <CardContent>
-            <MealForm 
-              initialMeal={meals[editingMealIndex]}
-              onSubmit={(meal) => handleUpdateMeal(meal, editingMealIndex)}
-            />
-            <Button 
-              variant="outline" 
-              className="mt-4 w-full"
-              onClick={() => setEditingMealIndex(null)}
-            >
-              Cancelar
-            </Button>
-          </CardContent>
+            <CardContent>
+              <MealForm
+                initialMeal={meals[editingMealIndex]}
+                onSubmit={meal => handleUpdateMeal(meal, editingMealIndex)}
+              />
+              <Button
+                variant="outline"
+                className="mt-4 w-full"
+                onClick={() => setEditingMealIndex(null)}
+              >
+                Cancelar
+              </Button>
+            </CardContent>
         </Card>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -161,7 +215,7 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
             <Input
               id="name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={e => setName(e.target.value)}
               placeholder="Ex: Plano de Definição"
               required
             />
@@ -173,21 +227,25 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
               id="date"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={e => setDate(e.target.value)}
               required
             />
           </div>
 
           <div className="flex items-center space-x-2">
-            <Switch id="isPublic" checked={isPublic} onCheckedChange={setIsPublic} />
+            <Switch
+              id="isPublic"
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+            />
             <Label htmlFor="isPublic">Plano público</Label>
           </div>
 
           <div>
             <div className="flex justify-between items-center mb-2">
               <Label>Refeições</Label>
-              <Button 
-                type="button" 
+              <Button
+                type="button"
                 onClick={() => setIsAddingMeal(true)}
                 className="bg-fitness-secondary hover:bg-fitness-secondary/90"
                 size="sm"
@@ -195,19 +253,20 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
                 <Plus size={16} className="mr-1" /> Adicionar Refeição
               </Button>
             </div>
-            
+
             {meals.length > 0 ? (
               <div className="space-y-4">
                 {meals.map((meal, index) => {
-                  const nutrition = calculateNutrition(meal.foods || []);
-                  
+                  const mealData: any = computedMeals[index];
                   return (
-                    <Card key={index} className="meal-card">
+                    <Card key={meal.id || index} className="meal-card">
                       <CardContent className="p-4">
                         <div className="flex justify-between items-center mb-3">
                           <div>
-                            <h3 className="font-medium">{meal.name}</h3>
-                            <p className="text-sm text-gray-500">{meal.time}</p>
+                            <h3 className="font-medium">{mealData.name}</h3>
+                            <p className="text-sm text-gray-500">
+                              {mealData.time}
+                            </p>
                           </div>
                           <div className="flex space-x-1">
                             <Button
@@ -230,25 +289,38 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
                             </Button>
                           </div>
                         </div>
-                        
-                        {(meal.foods && meal.foods.length > 0) && (
+
+                        {mealData.foods && mealData.foods.length > 0 && (
                           <>
                             <div className="text-xs text-gray-500 mb-1">
-                              {meal.foods.length} {meal.foods.length === 1 ? 'alimento' : 'alimentos'}
+                              {mealData.foods.length}{' '}
+                              {mealData.foods.length === 1
+                                ? 'alimento'
+                                : 'alimentos'}
                             </div>
-                            
+
                             <div className="text-sm grid grid-cols-4 gap-2">
                               <div>
-                                <p className="font-medium">{Math.round(nutrition.calories)} kcal</p>
+                                <p className="font-medium">
+                                  {Math.round(mealData.nutrition.calories)} kcal
+                                </p>
                               </div>
                               <div>
-                                <p>P: {Math.round(nutrition.protein)}g</p>
+                                <p>
+                                  P:{' '}
+                                  {Math.round(mealData.nutrition.protein)}g
+                                </p>
                               </div>
                               <div>
-                                <p>C: {Math.round(nutrition.carbs)}g</p>
+                                <p>
+                                  C:{' '}
+                                  {Math.round(mealData.nutrition.carbs)}g
+                                </p>
                               </div>
                               <div>
-                                <p>G: {Math.round(nutrition.fat)}g</p>
+                                <p>
+                                  G: {Math.round(mealData.nutrition.fat)}g
+                                </p>
                               </div>
                             </div>
                           </>
@@ -257,36 +329,52 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
                     </Card>
                   );
                 })}
-                
+
                 <div className="border-t pt-4 mt-4">
                   <h3 className="font-medium mb-2">Total do Dia</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-gray-500">Calorias</p>
                       <div className="flex justify-between">
-                        <p className="font-medium">{Math.round(totalNutrition.calories)} kcal</p>
-                        <p className="text-gray-500">/ {user.nutritionGoals.calories}</p>
+                        <p className="font-medium">
+                          {Math.round(planTotals.calories)} kcal
+                        </p>
+                        <p className="text-gray-500">
+                          / {user?.nutritionGoals?.calories ?? 0}
+                        </p>
                       </div>
                     </div>
                     <div>
                       <p className="text-gray-500">Proteínas</p>
                       <div className="flex justify-between">
-                        <p className="font-medium">{Math.round(totalNutrition.protein)} g</p>
-                        <p className="text-gray-500">/ {user.nutritionGoals.protein}g</p>
+                        <p className="font-medium">
+                          {Math.round(planTotals.protein)} g
+                        </p>
+                        <p className="text-gray-500">
+                          / {user?.nutritionGoals?.protein ?? 0}g
+                        </p>
                       </div>
                     </div>
                     <div>
                       <p className="text-gray-500">Carboidratos</p>
                       <div className="flex justify-between">
-                        <p className="font-medium">{Math.round(totalNutrition.carbs)} g</p>
-                        <p className="text-gray-500">/ {user.nutritionGoals.carbs}g</p>
+                        <p className="font-medium">
+                          {Math.round(planTotals.carbs)} g
+                        </p>
+                        <p className="text-gray-500">
+                          / {user?.nutritionGoals?.carbs ?? 0}g
+                        </p>
                       </div>
                     </div>
                     <div>
                       <p className="text-gray-500">Gorduras</p>
                       <div className="flex justify-between">
-                        <p className="font-medium">{Math.round(totalNutrition.fat)} g</p>
-                        <p className="text-gray-500">/ {user.nutritionGoals.fat}g</p>
+                        <p className="font-medium">
+                          {Math.round(planTotals.fat)} g
+                        </p>
+                        <p className="text-gray-500">
+                          / {user?.nutritionGoals?.fat ?? 0}g
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -294,8 +382,10 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
               </div>
             ) : (
               <div className="text-center py-8 border border-dashed rounded-md">
-                <p className="text-gray-500 mb-2">Nenhuma refeição adicionada</p>
-                <Button 
+                <p className="text-gray-500 mb-2">
+                  Nenhuma refeição adicionada
+                </p>
+                <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsAddingMeal(true)}
@@ -311,14 +401,14 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
             <Textarea
               id="notes"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={e => setNotes(e.target.value)}
               placeholder="Observações sobre este plano alimentar"
               rows={3}
             />
           </div>
 
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             className="w-full bg-fitness-secondary hover:bg-fitness-secondary/90"
           >
             {initialMealPlan ? 'Atualizar Plano Alimentar' : 'Criar Plano Alimentar'}

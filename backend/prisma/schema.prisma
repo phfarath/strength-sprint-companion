@@ -49,8 +49,8 @@ model Food {
   protein          Float
   carbs            Float
   fat              Float
-  isPublic         Boolean          @default(false)
   userId           Int
+  is_public        Boolean          @default(false)
   foodDiaryEntries FoodDiaryEntry[]
   user             User             @relation(fields: [userId], references: [id])
   mealFoods        MealFood[]
@@ -202,14 +202,14 @@ model NutritionGoals {
 }
 
 model MealPlan {
-  id     Int     @id @default(autoincrement())
-  name   String
-  date   String
-  notes  String?
-  isPublic Boolean @default(false)
-  userId Int
-  user   User    @relation(fields: [userId], references: [id])
-  meals  Meal[]
+  id        Int     @id @default(autoincrement())
+  name      String
+  date      String
+  notes     String?
+  userId    Int
+  is_public Boolean @default(false)
+  user      User    @relation(fields: [userId], references: [id])
+  meals     Meal[]
 
   @@map("meal_plans")
 }

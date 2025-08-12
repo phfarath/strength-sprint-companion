@@ -12,6 +12,19 @@ import FoodModal from './FoodModal';
 import { apiServices } from '@/services/api';
 import { useToast } from '@/components/ui/use-toast';
 
+function normalizeId(id: string | number): number {
+  // Remove prefixo 'f' se existir e converte para número
+  const s = id.toString();
+  const clean = s.startsWith('f') ? s.slice(1) : s;
+  const n = parseInt(clean, 10);
+  return isNaN(n) ? -1 : n;
+}
+
+// (Opcional) helper para garantir que salvamos foodId sempre numérico
+function ensureNumericFoodId(foodId: string | number): number {
+  return normalizeId(foodId);
+}
+
 const defaultFoods = [
   { id: "default-1", name: "Frango Grelhado", calories: 165, protein: 31, carbs: 0, fat: 3.6, weight: 100 },
   { id: "default-2", name: "Arroz Branco", calories: 130, protein: 2.7, carbs: 28, fat: 0.3, weight: 100 },
@@ -86,16 +99,20 @@ const MealForm: React.FC<MealFormProps> = ({ initialMeal, onSubmit }) => {
     }
   };
 
-  const calculateNutrition = () => selectedFoods.reduce((acc, item) => {
-    const food = foods.find(f => normalizeId(f.id) === normalizeId(item.foodId));
-    if (food) {
-      acc.calories += food.calories * item.servings;
-      acc.protein += food.protein * item.servings;
-      acc.carbs += food.carbs * item.servings;
-      acc.fat += food.fat * item.servings;
-    }
-    return acc;
-  }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  const calculateNutrition = () => {
+    return selectedFoods.reduce((acc, item) => {
+      const idNum = ensureNumericFoodId(item.foodId);
+      if (idNum === -1) return acc;
+      const food = foods.find(f => f.id === idNum);
+      if (food) {
+        acc.calories += food.calories * item.servings;
+        acc.protein  += food.protein  * item.servings;
+        acc.carbs    += food.carbs    * item.servings;
+        acc.fat      += food.fat      * item.servings;
+      }
+      return acc;
+    }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  };
 
   const nutrition = calculateNutrition();
 
@@ -115,8 +132,8 @@ const MealForm: React.FC<MealFormProps> = ({ initialMeal, onSubmit }) => {
           console.log("Alimento padrão adicionado ao BD:", response.data);
           
           // Use the new database ID - verificando se precisa de normalização
-          const newFoodId = response.data.id.toString();
-          setSelectedFoods([...selectedFoods, { foodId: newFoodId, servings: 1 }]);
+          const newFoodId = response.data.id; // manter numérico
+          setSelectedFoods(prev => [...prev, { foodId: newFoodId, servings: 1 }]);
           return;
         }
       } catch (error) {
@@ -141,12 +158,6 @@ const MealForm: React.FC<MealFormProps> = ({ initialMeal, onSubmit }) => {
     }
   };
 
-  // Função auxiliar para normalizar IDs
-  const normalizeId = (id: string | number): string => {
-    const stringId = id.toString();
-    return stringId.startsWith('f') ? stringId.substring(1) : stringId;
-  };
-
   const handleRemoveFood = (index: number) => {
     setSelectedFoods(selectedFoods.filter((_, i) => i !== index));
   };
@@ -166,27 +177,13 @@ const handleSubmit = (e: React.FormEvent) => {
   
   // Normaliza os IDs dos alimentos para números
   const normalizedFoods = selectedFoods.map(item => {
-      // Simplificar a conversão de ID
-      let foodId = item.foodId.toString();
-      
-      // Remover prefixo 'f' se existir
-      if (foodId.startsWith('f')) {
-        foodId = foodId.substring(1);
-      }
-      
-      // Validar se representa um número válido (sem converter para número)
-      const numericValue = parseInt(foodId, 10);
-      if (isNaN(numericValue) || numericValue <= 0) {
-        console.error(`ID de alimento inválido: ${item.foodId}`);
-        return null;
-      }
-      
-      // Converter para número para compatibilidade com o tipo MealFood
-      return {
-        foodId: parseInt(foodId, 10), // Converter para número
-        servings: parseFloat(item.servings.toString())
-      };
-    }).filter(item => item !== null); // Remover itens inválidos
+    const fid = ensureNumericFoodId(item.foodId);
+    if (fid === -1) return null;
+    return {
+      foodId: fid,
+      servings: parseFloat(item.servings.toString())
+    };
+  }).filter(Boolean); // Remover itens inválidos
   
   console.log('Alimentos normalizados para envio:', normalizedFoods);
   
@@ -432,7 +429,4 @@ const getFoodById = (foodId: string) => {
 };
 
 export default MealForm;
-function toast(arg0: { title: string; description: string; variant: string; }) {
-  throw new Error('Function not implemented.');
-}
 
