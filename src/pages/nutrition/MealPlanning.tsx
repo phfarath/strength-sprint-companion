@@ -1,29 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
 import { useAppContext } from '@/context/AppContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
+import { apiServices } from '@/services/api';
+import { format } from 'date-fns';
 import MealPlanForm from '@/components/nutrition/MealPlanForm';
 import FoodModal from '@/components/nutrition/FoodModal';
 import { MealPlan } from '@/types';
 import { Edit, Trash, Plus, Calendar, Search } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { apiServices } from '@/services/api';
+import { Input } from '@/components/ui/input';
 
-const MealPlanning = () => {
+const MealPlanning: React.FC = () => {
   const { mealPlans, addMealPlan, updateMealPlan, deleteMealPlan } = useAppContext();
   const { toast } = useToast();
   const [editingMealPlan, setEditingMealPlan] = useState<MealPlan | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('view');
   const [foodModalOpen, setFoodModalOpen] = useState(false);
-  const [foods, setFoods] = useState([]);
+  const [foods, setFoods] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingFood, setEditingFood] = useState(null);
-  
+
+  const [activeTab, setActiveTab] = useState<string>('view'); // padrão existente
+  const [publicPlans, setPublicPlans] = useState<any[]>([]);
+  const [loadingPublic, setLoadingPublic] = useState<boolean>(false);
+
   // Ordenar planos de refeição por data
   const sortedMealPlans = [...mealPlans].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -37,12 +41,9 @@ const MealPlanning = () => {
   const fetchFoods = async () => {
     try {
       setLoading(true);
-      console.log("Iniciando busca de alimentos...");
-      
-      // Verificando se tem token de autenticação
+
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        console.warn("Token de autenticação não encontrado");
         toast({
           title: "Erro de autenticação",
           description: "Você precisa estar logado para ver seus alimentos.",
@@ -50,32 +51,17 @@ const MealPlanning = () => {
         });
         return;
       }
-      
-      console.log("Enviando requisição para API...");
-      const response = await apiServices.getFoods();
-      console.log("Dados recebidos:", response.data);
-      
-      if (Array.isArray(response.data)) {
-        setFoods(response.data);
-      } else {
-        console.error("Formato de resposta inesperado:", response.data);
-        setFoods([]);
-      }
-    } catch (error) {
-      console.error("Erro ao buscar alimentos:", error);
-      
-      // Log detalhado do erro
-      if (error.response) {
-        console.error("Status:", error.response.status);
-        console.error("Dados do erro:", error.response.data);
-      }
-      
-      // Usando mockFoods como fallback para não quebrar a UI
-      setFoods([]); // Ou use mockFoods como fallback se tiver
-      
+
+      // Agora a API já retorna só privados, mas filtramos por segurança
+      const response = await apiServices.getMyFoods();
+      const mineOnly = (Array.isArray(response.data) ? response.data : []).filter((f: any) => !f.isPublic);
+      setFoods(mineOnly);
+    } catch (error: any) {
+      console.error("Erro ao buscar meus alimentos:", error);
+      setFoods([]);
       toast({
         title: "Erro ao carregar alimentos",
-        description: "Não foi possível carregar os alimentos. Tente novamente mais tarde.",
+        description: "Não foi possível carregar seus alimentos. Tente novamente mais tarde.",
         variant: "destructive"
       });
     } finally {
@@ -83,10 +69,12 @@ const MealPlanning = () => {
     }
   };
 
-  // Filtrar alimentos pela busca
-  const filteredFoods = foods.filter(food => 
-    food.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filtrar alimentos pela busca (defensivo e memoizado)
+  const filteredFoods = React.useMemo(() => {
+    const list = Array.isArray(foods) ? foods : [];
+    const q = (searchQuery || '').toLowerCase();
+    return list.filter(f => (f?.name || '').toLowerCase().includes(q));
+  }, [foods, searchQuery]);
 
   const handleCreateMealPlan = async (mealPlan: Omit<MealPlan, 'id'>) => {
     try {
@@ -134,35 +122,38 @@ const MealPlanning = () => {
     setActiveTab('edit');
   };
 
-  const handleFoodCreated = (food) => {
-    // Se estiver editando um alimento existente
+  const handleFoodCreated = (food: any) => {
+    // Evita capturar 'foods' por referência; usa atualização funcional
     if (editingFood) {
-      setFoods(foods.map(f => f.id === food.id ? food : f));
+      setFoods(prev => prev.map(f => f.id === food.id ? food : f));
     } else {
-      // Se for um novo alimento
-      setFoods([...foods, food]);
+      setFoods(prev => [...prev, food]);
     }
-    fetchFoods(); // Re-buscar alimentos para garantir sincronização
+    fetchFoods();
   };
 
-  const handleEditFood = (food) => {
+  const handleEditFood = (food: any) => {
     setEditingFood(food);
     setFoodModalOpen(true);
   };
 
-  const handleDeleteFood = async (id) => {
+  const handleDeleteFood = async (id: any) => {
     if (window.confirm('Tem certeza que deseja excluir este alimento?')) {
       try {
         await apiServices.deleteFood(id);
-        setFoods(foods.filter(f => f.id !== id));
+        setFoods(prev => prev.filter(f => f.id !== id));
         toast({
           title: "Alimento excluído",
           description: "O alimento foi removido com sucesso."
         });
-      } catch (error) {
+      } catch (error: any) {
+        const status = error?.response?.status;
+        const msg = status === 409
+          ? "Este alimento está sendo usado em planos de outros usuários e não pode ser excluído."
+          : "Não foi possível excluir o alimento.";
         toast({
           title: "Erro ao excluir",
-          description: "Não foi possível excluir o alimento.",
+          description: msg,
           variant: "destructive"
         });
       }
@@ -179,6 +170,86 @@ const MealPlanning = () => {
     return new Date(dateString).toLocaleDateString('pt-BR', options);
   };
 
+  const fetchPublicPlans = async () => {
+    try {
+      setLoadingPublic(true);
+      const res = await apiServices.getPublicMealPlans();
+      const plans = Array.isArray(res.data) ? res.data : [];
+      setPublicPlans(plans);
+    } catch (err) {
+      console.error('Erro ao buscar planos públicos:', err);
+      setPublicPlans([]);
+    } finally {
+      setLoadingPublic(false);
+    }
+  };
+
+  // Buscar quando a aba “public” é ativada
+  useEffect(() => {
+    if (activeTab === 'public') {
+      fetchPublicPlans();
+    }
+  }, [activeTab]);
+
+  // Importar um plano público para o usuário
+  const handleImportPublicPlan = async (plan: any) => {
+    try {
+      // Montar payload mínimo para criação
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const newPlan = {
+        name: `Cópia de ${plan.name}`,
+        date: todayIso,
+        notes: plan.notes || null,
+        isPublic: false,
+        meals: (plan.meals || []).map((m: any) => ({
+          name: m.name || 'Refeição',
+          time: m.time || null,
+          foods: (m.mealFoods || []).map((mf: any) => ({
+            foodId: Number(mf.food?.id ?? mf.foodId),         // garantir número
+            servings: Number(mf.quantity ?? mf.servings ?? 1), // quantidade
+          }))
+        }))
+      };
+
+      // Validação simples: remover itens com foodId inválido
+      newPlan.meals = newPlan.meals.map((m: any) => ({
+        ...m,
+        foods: m.foods.filter((f: any) => Number.isFinite(f.foodId))
+      }));
+
+      const resp = await apiServices.createMealPlan(newPlan);
+      toast({ title: 'Plano importado', description: 'Plano público copiado para sua conta.' });
+
+      // Opcional: atualizar sua aba de planos pessoais, se houver função existente
+      // Ex.: await fetchMealPlans();
+    } catch (err) {
+      console.error('Erro ao importar plano público:', err);
+      toast({ title: 'Falha ao importar', description: 'Não foi possível importar este plano.', variant: 'destructive' });
+    }
+  };
+
+  // Helper: totals para qualquer plano (fallback se API não enviar totalNutrition)
+  const getPlanTotals = (plan: any) => {
+    const fromApi = plan?.totalNutrition;
+    if (fromApi && (fromApi.calories || fromApi.protein || fromApi.carbs || fromApi.fat)) {
+      return fromApi;
+    }
+    const totals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+    (plan?.meals || []).forEach((m: any) => {
+      const items = m.mealFoods || m.foods || [];
+      items.forEach((mf: any) => {
+        const qty = Number(mf.quantity ?? mf.servings ?? 1);
+        const f = mf.food ?? mf; // mf.food quando vem do backend
+        if (!f) return;
+        totals.calories += Number(f.calories || 0) * qty;
+        totals.protein  += Number(f.protein  || 0) * qty;
+        totals.carbs    += Number(f.carbs    || 0) * qty;
+        totals.fat      += Number(f.fat      || 0) * qty;
+      });
+    });
+    return totals;
+  };
+
   return (
     <Layout>
       <motion.div 
@@ -193,12 +264,14 @@ const MealPlanning = () => {
         </p>
       </motion.div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList>
           <TabsTrigger value="view">Visualizar Planos</TabsTrigger>
           <TabsTrigger value="create">Criar Novo Plano</TabsTrigger>
           <TabsTrigger value="foods">Meus Alimentos</TabsTrigger>
-          {editingMealPlan && <TabsTrigger value="edit">Editar Plano</TabsTrigger>}
+          {/* Removido o trigger da aba de edição para escondê-la */}
+          {/* <TabsTrigger value="edit">Editar Plano</TabsTrigger> */}
+          <TabsTrigger value="public">Planos Públicos</TabsTrigger>
         </TabsList>
 
         <AnimatePresence mode="wait">
@@ -224,7 +297,7 @@ const MealPlanning = () => {
                 <div className="space-y-6">
                   {sortedMealPlans.map((mealPlan) => {
                     const nutrition = mealPlan.totalNutrition || { calories: 0, protein: 0, carbs: 0, fat: 0 };
-                    
+
                     return (
                       <motion.div
                         key={mealPlan.id}
@@ -233,69 +306,66 @@ const MealPlanning = () => {
                         transition={{ duration: 0.3 }}
                       >
                         <Card className="bg-white hover:shadow-lg transition-shadow duration-300">
-                          <CardHeader className="pb-2">
-                            <div className="flex justify-between items-center">
-                              <CardTitle className="flex items-center">
-                                {mealPlan.name}
-                                <span className="ml-2 text-sm text-gray-500">
-                                  {formatDate(mealPlan.date)}
-                                </span>
-                              </CardTitle>
-                              <div className="flex space-x-2">
-                                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleEditMealPlan(mealPlan)}
-                                  >
-                                    <Edit size={16} />
-                                  </Button>
-                                </motion.div>
-                                <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-red-500 hover:text-red-700"
-                                    onClick={() => handleDeleteMealPlan(mealPlan.id)}
-                                  >
-                                    <Trash size={16} />
-                                  </Button>
-                                </motion.div>
+                          <CardContent>
+                            {/* Cabeçalho com nome/data + ações alinhadas */}
+                            <div className="flex items-center justify-between mb-2">
+                              <div>
+                                <div className="font-semibold">{mealPlan.name}</div>
+                                <div className="text-xs text-gray-500">
+                                  {mealPlan.date ? format(new Date(mealPlan.date), 'dd/MM/yyyy') : 'Sem data'}
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEditMealPlan(mealPlan)}
+                                  title="Editar plano"
+                                  className="hover:bg-gray-100"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteMealPlan(String(mealPlan.id))}
+                                  title="Excluir plano"
+                                  className="hover:bg-gray-100"
+                                >
+                                  <Trash className="h-4 w-4 text-red-500" />
+                                </Button>
                               </div>
                             </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div>
-                              <div className="text-sm text-gray-500 mb-2">
-                                {mealPlan.meals.length} refeições
-                              </div>
 
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
-                                {mealPlan.meals.map((meal, index) => (
-                                  <div key={index} className="flex justify-between">
-                                    <span>{meal.name}</span>
-                                    <span className="text-gray-500">{meal.time}</span>
-                                  </div>
-                                ))}
+                            <div className="text-sm text-gray-500 mb-2">
+                              {mealPlan.meals.length} refeições
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-4">
+                              {mealPlan.meals.map((meal, index) => (
+                                <div key={index} className="flex justify-between">
+                                  <span>{meal.name}</span>
+                                  <span className="text-gray-500">{meal.time}</span>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="border-t pt-3 grid grid-cols-4 text-sm">
+                              <div>
+                                <p className="text-gray-500">Calorias</p>
+                                <p className="font-medium">{Math.round(nutrition.calories)} kcal</p>
                               </div>
-                              
-                              <div className="border-t pt-3 grid grid-cols-4 text-sm">
-                                <div>
-                                  <p className="text-gray-500">Calorias</p>
-                                  <p className="font-medium">{Math.round(nutrition.calories)} kcal</p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-500">Proteínas</p>
-                                  <p className="font-medium">{Math.round(nutrition.protein)} g</p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-500">Carboidratos</p>
-                                  <p className="font-medium">{Math.round(nutrition.carbs)} g</p>
-                                </div>
-                                <div>
-                                  <p className="text-gray-500">Gorduras</p>
-                                  <p className="font-medium">{Math.round(nutrition.fat)} g</p>
-                                </div>
+                              <div>
+                                <p className="text-gray-500">Proteínas</p>
+                                <p className="font-medium">{Math.round(nutrition.protein)} g</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Carboidratos</p>
+                                <p className="font-medium">{Math.round(nutrition.carbs)} g</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Gorduras</p>
+                                <p className="font-medium">{Math.round(nutrition.fat)} g</p>
                               </div>
                             </div>
                           </CardContent>
@@ -436,9 +506,6 @@ const MealPlanning = () => {
                 transition={{ duration: 0.3 }}
               >
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Criar Novo Plano Alimentar</CardTitle>
-                  </CardHeader>
                   <CardContent>
                     <MealPlanForm onSubmit={handleCreateMealPlan} />
                   </CardContent>
@@ -446,7 +513,7 @@ const MealPlanning = () => {
               </motion.div>
             </TabsContent>
 
-            <TabsContent value="edit">
+            {/* <TabsContent value="edit">
               {editingMealPlan && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -454,9 +521,6 @@ const MealPlanning = () => {
                   transition={{ duration: 0.3 }}
                 >
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Editar Plano Alimentar</CardTitle>
-                    </CardHeader>
                     <CardContent>
                       <MealPlanForm 
                         initialMealPlan={editingMealPlan}
@@ -475,6 +539,46 @@ const MealPlanning = () => {
                     </CardContent>
                   </Card>
                 </motion.div>
+              )}
+            </TabsContent> */}
+
+            <TabsContent value="public" className="mt-4">
+              {loadingPublic ? (
+                <div className="text-sm text-muted-foreground">Carregando planos públicos…</div>
+              ) : publicPlans.length === 0 ? (
+                <div className="text-sm text-muted-foreground">Nenhum plano público encontrado.</div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {publicPlans.map((plan: any) => {
+                    const totals = getPlanTotals(plan);
+                    return (
+                      <Card key={plan.id}>
+                        <CardContent className="p-4 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-semibold">{plan.name}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {plan.date ? format(new Date(plan.date), 'dd/MM/yyyy') : 'Sem data'}
+                              </div>
+                            </div>
+                            <Button size="sm" onClick={() => handleImportPublicPlan(plan)}>Importar</Button>
+                          </div>
+
+                          <div className="grid grid-cols-4 gap-2 text-xs">
+                            <div><span className="text-muted-foreground">Kcal</span> <b>{Math.round(totals.calories)}</b></div>
+                            <div><span className="text-muted-foreground">P</span> <b>{Math.round(totals.protein)}g</b></div>
+                            <div><span className="text-muted-foreground">C</span> <b>{Math.round(totals.carbs)}g</b></div>
+                            <div><span className="text-muted-foreground">G</span> <b>{Math.round(totals.fat)}g</b></div>
+                          </div>
+
+                          <div className="text-xs text-muted-foreground">
+                            {plan.meals?.length || 0} refeições
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               )}
             </TabsContent>
           </motion.div>
