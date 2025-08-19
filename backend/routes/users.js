@@ -261,4 +261,72 @@ router.put('/profile/nutrition-goals', auth, async (req, res) => {
   }
 });
 
+// POST /api/users/feedback - Enviar feedback do usuário
+router.post('/feedback', auth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { name, email, message, feedbackType, rating } = req.body;
+    
+    if (!message || !feedbackType) {
+      return res.status(400).json({ 
+        message: 'Mensagem e tipo de feedback são obrigatórios' 
+      });
+    }
+    
+    // Mapear feedbackType para sentiment numérico
+    const sentimentMap = {
+      'positive': 1,
+      'neutral': 0, 
+      'negative': -1
+    };
+    
+    const feedback = await prisma.userFeedback.create({
+      data: {
+        user_id: userId || null,
+        name: name || null,
+        email: email || null,
+        rating: rating || null,
+        sentiment: sentimentMap[feedbackType],
+        comment: message
+      }
+    });
+    
+    res.status(201).json({
+      id: feedback.id,
+      message: 'Feedback enviado com sucesso!'
+    });
+  } catch (error) {
+    console.error('Erro ao salvar feedback:', error);
+    res.status(500).json({ message: 'Erro interno do servidor' });
+  }
+});
+
+// GET /api/users/feedback - Buscar feedbacks do usuário (opcional)
+router.get('/feedback', auth, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    
+    const feedbacks = await prisma.userFeedback.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        rating: true,
+        sentiment: true,
+        comment: true,
+        created_at: true
+      }
+    });
+    
+    res.json(feedbacks);
+  } catch (error) {
+    console.error('Erro ao buscar feedbacks:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

@@ -204,21 +204,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const fetchWorkoutPlans = async () => {
     try {
+      console.log("Buscando planos de treino do servidor...");
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.log("Token não encontrado, usando dados mock");
+        setWorkoutPlans(mockWorkoutPlans);
+        return;
+      }
+
       const response = await apiServices.getWorkoutPlans();
-      setWorkoutPlans(response.data);
+      console.log("Planos de treino recebidos:", response.data);
+      setWorkoutPlans(response.data || []);
     } catch (error) {
       console.error('Erro ao buscar planos de treino:', error);
-      setWorkoutPlans(mockWorkoutPlans); // Fallback temporário
+      setWorkoutPlans(mockWorkoutPlans); // Fallback
     }
   };
 
   const fetchWorkoutLogs = async () => {
     try {
+      console.log("Buscando logs de treino do servidor...");
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.log("Token não encontrado, usando dados mock");
+        setWorkoutLogs(mockWorkoutLogs);
+        return;
+      }
+
       const response = await apiServices.getWorkoutSessions();
-      setWorkoutLogs(response.data);
+      console.log("Logs de treino recebidos:", response.data);
+      setWorkoutLogs(response.data || []);
     } catch (error) {
       console.error('Erro ao buscar logs de treino:', error);
-      setWorkoutLogs(mockWorkoutLogs); // Fallback temporário
+      setWorkoutLogs(mockWorkoutLogs); // Fallback
     }
   };
 
@@ -321,53 +339,96 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Restante das funções modificadas para usar a API
   const addWorkoutPlan = async (plan: Omit<WorkoutPlan, 'id'>) => {
     try {
+      console.log("Criando plano de treino:", plan);
       const response = await apiServices.createWorkoutPlan(plan);
       const newPlan = response.data;
-      setWorkoutPlans([...workoutPlans, newPlan]);
+      
+      setWorkoutPlans(prev => [...prev, newPlan]);
       toast({
-        title: "Plano de treino adicionado",
-        description: `O plano ${newPlan.name} foi adicionado com sucesso!`,
+        title: "Plano de treino criado",
+        description: `O plano ${newPlan.name} foi criado com sucesso!`,
       });
-    } catch (error) {
-      console.error('Erro ao adicionar plano:', error);
+      return true;
+    } catch (error: any) {
+      console.error('Erro ao criar plano de treino:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível adicionar o plano. Tente novamente.",
+        description: "Não foi possível criar o plano. Tente novamente.",
         variant: "destructive"
       });
+      throw error;
     }
   };
 
-  const updateWorkoutPlan = (plan: WorkoutPlan) => {
-    setWorkoutPlans(workoutPlans.map(wp => (wp.id === plan.id ? plan : wp)));
-    toast({
-      title: "Plano de treino atualizado",
-      description: `O plano ${plan.name} foi atualizado com sucesso!`,
-    });
-  };
-
-  const deleteWorkoutPlan = (id: string) => {
-    const planToDelete = workoutPlans.find(wp => wp.id === id);
-    if (planToDelete) {
-      setWorkoutPlans(workoutPlans.filter(wp => wp.id !== id));
+  const updateWorkoutPlan = async (plan: WorkoutPlan) => {
+    try {
+      console.log("Atualizando plano de treino:", plan);
+      const response = await apiServices.updateWorkoutPlan(plan.id, plan);
+      const updatedPlan = response.data;
+      
+      setWorkoutPlans(prev => prev.map(wp => wp.id === plan.id ? updatedPlan : wp));
       toast({
-        title: "Plano de treino removido",
-        description: `O plano ${planToDelete.name} foi removido com sucesso!`,
+        title: "Plano de treino atualizado",
+        description: `O plano ${updatedPlan.name} foi atualizado com sucesso!`,
       });
+      return true;
+    } catch (error: any) {
+      console.error('Erro ao atualizar plano de treino:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o plano. Tente novamente.",
+        variant: "destructive"
+      });
+      throw error;
     }
   };
 
-  // Funções para gerenciar logs de treino
-  const logWorkout = (log: Omit<WorkoutLog, 'id'>) => {
-    const newLog: WorkoutLog = {
-      ...log,
-      id: `wl${Date.now()}`
-    };
-    setWorkoutLogs([...workoutLogs, newLog]);
-    toast({
-      title: "Treino registrado",
-      description: `Seu treino foi registrado com sucesso!`,
-    });
+  const deleteWorkoutPlan = async (id: string) => {
+    try {
+      console.log("Excluindo plano de treino:", id);
+      const planToDelete = workoutPlans.find(wp => wp.id === id);
+      
+      await apiServices.deleteWorkoutPlan(id);
+      setWorkoutPlans(prev => prev.filter(wp => wp.id !== id));
+      
+      toast({
+        title: "Plano de treino excluído",
+        description: `O plano ${planToDelete?.name} foi excluído com sucesso!`,
+      });
+      return true;
+    } catch (error: any) {
+      console.error('Erro ao excluir plano de treino:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o plano. Tente novamente.",
+        variant: "destructive"
+      });
+      throw error;
+    }
+  };
+
+  // Funções para gerenciar logs de treino (com API)
+  const logWorkout = async (log: Omit<WorkoutLog, 'id'>) => {
+    try {
+      console.log("Registrando treino:", log);
+      const response = await apiServices.createWorkoutSession(log);
+      const newLog = response.data;
+      
+      setWorkoutLogs(prev => [...prev, newLog]);
+      toast({
+        title: "Treino registrado",
+        description: `Seu treino foi registrado com sucesso!`,
+      });
+      return true;
+    } catch (error: any) {
+      console.error('Erro ao registrar treino:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível registrar o treino. Tente novamente.",
+        variant: "destructive"
+      });
+      throw error;
+    }
   };
 
   const updateWorkoutLog = (log: WorkoutLog) => {

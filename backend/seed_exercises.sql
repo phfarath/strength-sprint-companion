@@ -1,0 +1,16 @@
+INSERT INTO exercises (name, muscle_group, equipment, instructions, is_public, created_at) VALUES 
+('Supino Reto', 'Peito', 'Barra', 'Deite no banco e empurre a barra para cima', true, NOW()),
+('Agachamento', 'Pernas', 'Barra', 'Desça mantendo as costas retas', true, NOW()),
+('Levantamento Terra', 'Costas', 'Barra', 'Levante a barra do chão mantendo as costas retas', true, NOW()),
+('Desenvolvimento', 'Ombros', 'Halteres', 'Empurre os halteres acima da cabeça', true, NOW()),
+('Rosca Direta', 'Bíceps', 'Barra', 'Flexione os braços trazendo a barra ao peito', true, NOW()),
+('Tríceps Testa', 'Tríceps', 'Halteres', 'Estenda os braços acima da cabeça', true, NOW()),
+('Pulldown', 'Costas', 'Máquina', 'Puxe a barra em direção ao peito', true, NOW()),
+('Leg Press', 'Pernas', 'Máquina', 'Empurre a plataforma com as pernas', true, NOW()),
+('Crucifixo', 'Peito', 'Halteres', 'Abra e feche os braços em movimento de voo', true, NOW()),
+('Remada Baixa', 'Costas', 'Cabo', 'Puxe o cabo em direção ao abdômen', true, NOW()),
+('Abdominal', 'Abdômen', 'Peso Corporal', 'Flexione o tronco em direção aos joelhos', true, NOW()),
+('Stiff', 'Pernas', 'Barra', 'Flexione o quadril mantendo as pernas retas', true, NOW()),
+('Panturrilha em Pé', 'Pernas', 'Máquina', 'Eleve-se na ponta dos pés', true, NOW()),
+('Peck Deck', 'Peito', 'Máquina', 'Aproxime os braços na frente do corpo', true, NOW()),
+('Elevação Lateral', 'Ombros', 'Halteres', 'Eleve os braços lateralmente', true, NOW());

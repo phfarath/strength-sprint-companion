@@ -8,75 +8,69 @@ export const getAuthToken = () => localStorage.getItem(TOKEN_KEY);
 
 const api = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  headers: { 'Content-Type': 'application/json' }
 });
 
-// Interceptor para adicionar token a todas as requisições
+// Interceptor para anexar token
 api.interceptors.request.use(config => {
   const token = getAuthToken();
-  if (token) {
-    config.headers['x-auth-token'] = token;
-  }
+  if (token) config.headers['x-auth-token'] = token;
   return config;
 });
 
-// Serviço para criar plano alimentar
-const createMealPlan = async (mealPlan) => {
-  const token = localStorage.getItem('auth_token');
-  
-  if (!token) {
-    throw new Error('Token de autenticação não encontrado');
-  }
-  
-  // Log para depuração
-  console.log('createMealPlan - dados enviados:', JSON.stringify(mealPlan, null, 2));
-  
-  return axios.post('/api/nutrition/meal-plans', mealPlan, {
-    headers: {
-      'x-auth-token': token
-    }
-  });
-};
-
-// Funções de API específicas para cada recurso
+// Endpoints
 export const apiServices = {
-  // Users/Auth
+  // Auth/Users
   register: (userData) => api.post('/users/register', userData),
   login: (credentials) => api.post('/users/login', credentials),
   getProfile: () => api.get('/users/profile'),
   updateProfile: (profileData) => api.put('/users/profile', profileData),
   updateNutritionGoals: (goals) => api.put('/users/profile/nutrition-goals', goals),
-  
+
   // Exercises
-  getExercises: () => api.get('/exercises'),
-  getExercise: (id) => api.get(`/exercises/${id}`),
+  getExercises: () => api.get('/workouts/exercises'),
+  createExercise: (exerciseData: any) => api.post('/workouts/exercises', exerciseData),
   
   // Workouts
   getWorkoutPlans: () => api.get('/workouts/plans'),
-  createWorkoutPlan: (plan) => api.post('/workouts/plans', plan),
-  updateWorkoutPlan: (id, plan) => api.put(`/workouts/plans/${id}`, plan),
-  deleteWorkoutPlan: (id) => api.delete(`/workouts/plans/${id}`),
-  logWorkout: (session) => api.post('/workouts/sessions', session),
+  createWorkoutPlan: (planData: any) => api.post('/workouts/plans', planData),
+  updateWorkoutPlan: (id: string, planData: any) => api.put(`/workouts/plans/${id}`, planData),
+  deleteWorkoutPlan: (id: string) => api.delete(`/workouts/plans/${id}`),
   
-  // Foods/Nutrition
-  getFoods: () => api.get('/nutrition/foods'),
-  createFood: (foodData) => api.post('/nutrition/foods', foodData),
-  updateFood: (id, foodData) => api.put(`/nutrition/foods/${id}`, foodData),
+  // Workout Sessions
+  getWorkoutSessions: () => api.get('/workouts/sessions'),
+  createWorkoutSession: (sessionData: any) => api.post('/workouts/sessions', sessionData),
+
+  // Nutrition - Foods
+  getFoods: () => api.get('/nutrition/foods'),              // combinado (compat)
+  getMyFoods: () => api.get('/nutrition/foods/my'),         // só meus
+  getPublicFoods: () => api.get('/nutrition/foods/public'), // só públicos
+  createFood: (food) => api.post('/nutrition/foods', food),
+  updateFood: (id, food) => api.put(`/nutrition/foods/${id}`, food),
   deleteFood: (id) => api.delete(`/nutrition/foods/${id}`),
-  
-  // Meal plan management
+
+  // Nutrition - Meal Plans
   getMealPlans: () => api.get('/nutrition/meal-plans'),
   getPublicMealPlans: () => api.get('/nutrition/meal-plans/public'),
-  createMealPlan: (planData) => api.post('/nutrition/meal-plans', planData),
-  updateMealPlan: (id, data) => api.put(`/nutrition/meal-plans/${id}`, data),
+  createMealPlan: (plan) => api.post('/nutrition/meal-plans', plan),
+  updateMealPlan: (id, plan) => api.put(`/nutrition/meal-plans/${id}`, plan),
   deleteMealPlan: (id) => api.delete(`/nutrition/meal-plans/${id}`),
-  
+
   // Progress
-  getWorkoutSessions: () => api.get('/progress/workout'),
+  getWorkoutProgress: () => api.get('/progress/workout'),
   getNutritionProgress: () => api.get('/progress/nutrition'),
-  logDeviceData: (data) => api.post('/progress/device', data)
+  logDeviceData: (data) => api.post('/progress/device', data),
+
+  // User Feedback
+  submitFeedback: (feedbackData: {
+    name?: string;
+    email?: string; 
+    message: string;
+    feedbackType: 'positive' | 'neutral' | 'negative';
+    rating?: number;
+  }) => api.post('/users/feedback', feedbackData),
+  
+  getUserFeedbacks: () => api.get('/users/feedback'),
 };
 
 export default api;

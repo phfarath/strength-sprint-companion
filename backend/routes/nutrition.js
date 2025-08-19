@@ -159,27 +159,38 @@ router.put('/foods/:id', auth, async (req, res) => {
 router.delete('/foods/:id', auth, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    
-    // Verificar se o alimento existe e pertence ao usuário
+    const userId = parseInt(req.user.id);
+
     const existingFood = await prisma.food.findFirst({
-      where: {
-        id,
-        userId: parseInt(req.user.id)
-      }
+      where: { id, userId }
     });
-    
+
     if (!existingFood) {
       return res.status(404).json({ message: 'Alimento não encontrado ou não pertence a este usuário' });
     }
-    
-    await prisma.food.delete({
-      where: { id }
+
+    // Remover referências das SUAS refeições primeiro
+    await prisma.mealFood.deleteMany({
+      where: {
+        foodId: id,
+        meal: { mealPlan: { userId } }
+      }
     });
-    
-    res.json({ message: 'Alimento excluído com sucesso' });
+
+    // Verificar se ainda há referências (de outros usuários)
+    const stillInUse = await prisma.mealFood.count({ where: { foodId: id } });
+    if (stillInUse > 0) {
+      // Não deletar para não quebrar planos de outros usuários
+      return res.status(409).json({
+        message: 'Este alimento está sendo utilizado em planos de outros usuários e não pode ser excluído.'
+      });
+    }
+
+    await prisma.food.delete({ where: { id } });
+    return res.json({ message: 'Alimento excluído com sucesso' });
   } catch (error) {
     console.error('Erro ao excluir alimento:', error);
-    res.status(500).json({ message: 'Erro ao excluir alimento' });
+    return res.status(500).json({ message: 'Erro ao excluir alimento', error: error.toString() });
   }
 });
 
@@ -516,6 +527,33 @@ router.delete('/meal-plans/:id', auth, async (req, res) => {
       error: error.toString(),
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
+  }
+});
+
+// NOVO: separar listas
+router.get('/foods/my', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id);
+    // Apenas alimentos privados do usuário (não listar públicos aqui)
+    const foods = await prisma.food.findMany({
+      where: { userId, is_public: false }
+    });
+    return res.json(foods.map(mapFood));
+  } catch (error) {
+    console.error('Erro ao obter meus alimentos:', error);
+    return res.status(500).json({ message: 'Erro ao obter meus alimentos' });
+  }
+});
+
+router.get('/foods/public', auth, async (req, res) => {
+  try {
+    const foods = await prisma.food.findMany({
+      where: { is_public: true }
+    });
+    return res.json(foods.map(mapFood));
+  } catch (error) {
+    console.error('Erro ao obter alimentos públicos:', error);
+    return res.status(500).json({ message: 'Erro ao obter alimentos públicos' });
   }
 });
 

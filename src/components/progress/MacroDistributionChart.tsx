@@ -1,103 +1,97 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { calculateDailyNutrition } from '@/data/mockData';
 import { useAppContext } from '@/context/AppContext';
+import { calculateDailyNutrition } from '@/data/mockData';
+import { PieChart as PieChartIcon } from 'lucide-react';
 
 const MacroDistributionChart = () => {
   const { mealPlans, getCurrentDate } = useAppContext();
+  
+  // Buscar plano alimentar de hoje
   const todayMealPlan = mealPlans.find(plan => plan.date === getCurrentDate());
   
-  // Calculo de macronutrientes
-  let macros = { protein: 0, carbs: 0, fat: 0 };
-  
+  let macroData = [
+    { name: 'Proteínas', value: 25, color: '#3b82f6' },
+    { name: 'Carboidratos', value: 50, color: '#eab308' },
+    { name: 'Gorduras', value: 25, color: '#ef4444' }
+  ];
+
   if (todayMealPlan) {
     const nutrition = calculateDailyNutrition(todayMealPlan);
-    macros = {
-      protein: Math.round(nutrition.protein),
-      carbs: Math.round(nutrition.carbs),
-      fat: Math.round(nutrition.fat)
-    };
-  } else {
-    // Dados de exemplo se não houver plano para hoje
-    macros = {
-      protein: 120,
-      carbs: 200,
-      fat: 60
-    };
+    const totalCalories = nutrition.calories;
+    
+    if (totalCalories > 0) {
+      // Calcular percentuais (4 kcal/g para proteína e carbs, 9 kcal/g para gordura)
+      const proteinPercent = Math.round((nutrition.protein * 4 / totalCalories) * 100);
+      const carbsPercent = Math.round((nutrition.carbs * 4 / totalCalories) * 100);
+      const fatPercent = Math.round((nutrition.fat * 9 / totalCalories) * 100);
+      
+      macroData = [
+        { name: 'Proteínas', value: proteinPercent, color: '#3b82f6' },
+        { name: 'Carboidratos', value: carbsPercent, color: '#eab308' },
+        { name: 'Gorduras', value: fatPercent, color: '#ef4444' }
+      ];
+    }
   }
-  
-  // Calculando calorias de cada macronutriente
-  const proteinCalories = macros.protein * 4;
-  const carbsCalories = macros.carbs * 4;
-  const fatCalories = macros.fat * 9;
-  const totalCalories = proteinCalories + carbsCalories + fatCalories;
-  
-  const data = [
-    { name: 'Proteínas', value: proteinCalories, macroValue: macros.protein, color: '#3b82f6' },
-    { name: 'Carboidratos', value: carbsCalories, macroValue: macros.carbs, color: '#eab308' },
-    { name: 'Gorduras', value: fatCalories, macroValue: macros.fat, color: '#ef4444' },
-  ];
-  
-  // Calcula porcentagens
-  const getPercent = (value: number) => {
-    if (totalCalories === 0) return 0;
-    return Math.round((value / totalCalories) * 100);
+
+  const renderTooltip = (props: any) => {
+    if (props.active && props.payload && props.payload.length > 0) {
+      const data = props.payload[0];
+      return (
+        <div className="bg-white p-2 border rounded shadow">
+          <p className="font-medium">{data.name}</p>
+          <p className="text-sm">{data.value}% das calorias</p>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
-    <Card className="bg-white rounded-lg shadow mb-6">
+    <Card className="bg-white">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">Distribuição de Macronutrientes</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <PieChartIcon className="h-5 w-5 text-fitness-primary" />
+          Distribuição de Macronutrientes - Hoje
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-64">
+        <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={data}
+                data={macroData}
                 cx="50%"
                 cy="50%"
-                labelLine={false}
-                outerRadius={80}
-                fill="#8884d8"
+                innerRadius={60}
+                outerRadius={120}
+                paddingAngle={5}
                 dataKey="value"
               >
-                {data.map((entry, index) => (
+                {macroData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip
-                formatter={(value: number, name: string, props: { payload: { macroValue: number; value: number; name: string } }) => {
-                  const entry = props.payload;
-                  return [
-                    `${entry.macroValue}g (${getPercent(entry.value)}%)`,
-                    entry.name
-                  ];
-                }}
+              <Tooltip content={renderTooltip} />
+              <Legend 
+                verticalAlign="bottom"
+                height={36}
+                formatter={(value, entry) => (
+                  <span style={{ color: entry.color }}>{value}</span>
+                )}
               />
-              <Legend />
             </PieChart>
           </ResponsiveContainer>
         </div>
         
-        <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
-          <div className="text-center">
-            <p className="text-gray-500">Proteínas</p>
-            <p className="font-bold text-blue-500">{macros.protein}g</p>
-            <p className="text-xs">{getPercent(proteinCalories)}% das calorias</p>
-          </div>
-          <div className="text-center">
-            <p className="text-gray-500">Carboidratos</p>
-            <p className="font-bold text-yellow-500">{macros.carbs}g</p>
-            <p className="text-xs">{getPercent(carbsCalories)}% das calorias</p>
-          </div>
-          <div className="text-center">
-            <p className="text-gray-500">Gorduras</p>
-            <p className="font-bold text-red-500">{macros.fat}g</p>
-            <p className="text-xs">{getPercent(fatCalories)}% das calorias</p>
-          </div>
+        <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+          {macroData.map((macro) => (
+            <div key={macro.name} className="text-center p-2 rounded" style={{ backgroundColor: `${macro.color}15` }}>
+              <p className="text-gray-600">{macro.name}</p>
+              <p className="font-bold" style={{ color: macro.color }}>{macro.value}%</p>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>

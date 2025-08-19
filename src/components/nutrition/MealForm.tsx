@@ -62,6 +62,10 @@ const MealForm: React.FC<MealFormProps> = ({ initialMeal, onSubmit }) => {
   const [loading, setLoading] = useState(true);
   const [showDefaultFoods, setShowDefaultFoods] = useState(false);
 
+// NOVO: separar minhas comidas e públicas
+  const [myFoods, setMyFoods] = useState<any[]>([]);
+  const [publicFoods, setPublicFoods] = useState<any[]>([]);
+
   useEffect(() => {
     fetchFoods();
   }, []);
@@ -90,20 +94,56 @@ const MealForm: React.FC<MealFormProps> = ({ initialMeal, onSubmit }) => {
   const fetchFoods = async () => {
     try {
       setLoading(true);
-      const response = await apiServices.getFoods();
-      setFoods(response.data);
+      const [myRes, pubRes] = await Promise.all([
+        apiServices.getMyFoods(),
+        apiServices.getPublicFoods()
+      ]);
+      const my = Array.isArray(myRes.data) ? myRes.data : [];
+      const pub = Array.isArray(pubRes.data) ? pubRes.data : [];
+      setMyFoods(my);
+      setPublicFoods(pub);
+      setFoods([...my, ...pub]); // compat para quem usa foods combinado
     } catch (error) {
       console.error("Erro ao buscar alimentos:", error);
+      // Fallback: usa combinado
+      try {
+        const response = await apiServices.getFoods();
+        const all = response.data || [];
+        setMyFoods(all.filter((f: any) => !f.isPublic));
+        setPublicFoods(all.filter((f: any) => f.isPublic));
+        setFoods(all);
+      } catch (e2) {
+        console.error("Fallback /foods também falhou:", e2);
+        setMyFoods([]);
+        setPublicFoods([]);
+        setFoods([]);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const calculateNutrition = () => {
+    // helper para achar o alimento em qualquer fonte
+    const findAnyFood = (fid: string | number) => {
+      const idNum = ensureNumericFoodId(fid);
+      if (idNum !== -1) {
+        // procurar nos bancos (meus e públicos)
+        const f =
+          myFoods.find((x: any) => x.id === idNum) ||
+          publicFoods.find((x: any) => x.id === idNum);
+        if (f) return f;
+      }
+      // se for default-id (ex: default-1), use a tabela local de defaults
+      const fidStr = fid.toString();
+      if (fidStr.startsWith('default-')) {
+        return defaultFoods.find(df => df.id === fidStr);
+      }
+      return null;
+    };
+
     return selectedFoods.reduce((acc, item) => {
-      const idNum = ensureNumericFoodId(item.foodId);
-      if (idNum === -1) return acc;
-      const food = foods.find(f => f.id === idNum);
+      const food = findAnyFood(item.foodId);
       if (food) {
         acc.calories += food.calories * item.servings;
         acc.protein  += food.protein  * item.servings;
@@ -118,38 +158,18 @@ const MealForm: React.FC<MealFormProps> = ({ initialMeal, onSubmit }) => {
 
   const handleAddFood = async (foodId: string) => {
     console.log("handleAddFood recebeu ID:", foodId);
-    
-    // If it's a default food, add it to the database first
+
+    // Se for default, apenas adiciona à refeição, sem persistir agora
     if (foodId.startsWith("default-")) {
-      try {
-        const defaultFood = defaultFoods.find(f => f.id === foodId);
-        if (defaultFood) {
-          // Create a copy without the 'id' property
-          const { id, ...foodData } = defaultFood;
-          
-          // Add the food to the database
-          const response = await apiServices.createFood(foodData);
-          console.log("Alimento padrão adicionado ao BD:", response.data);
-          
-          // Use the new database ID - verificando se precisa de normalização
-          const newFoodId = response.data.id; // manter numérico
-          setSelectedFoods(prev => [...prev, { foodId: newFoodId, servings: 1 }]);
-          return;
-        }
-      } catch (error) {
-        console.error("Erro ao adicionar alimento padrão:", error);
-        // Implementar toast adequadamente
-        alert("Não foi possível adicionar o alimento padrão.");
-      }
+      setSelectedFoods(prev => [...prev, { foodId, servings: 1 }]);
+      return;
     }
-    
-    // Regular food ID - Defina porção como 1.0 explicitamente
-    // Verifica se o alimento já não está na lista (evitando duplicatas)
-    // Usa função auxiliar para normalizar IDs
-    const foodAlreadySelected = selectedFoods.some(item => 
+
+    // Regular food ID - evitar duplicata
+    const foodAlreadySelected = selectedFoods.some(item =>
       normalizeId(item.foodId) === normalizeId(foodId)
     );
-    
+
     if (!foodAlreadySelected) {
       console.log(`Adicionando alimento: ${foodId} com porção 1.0`);
       setSelectedFoods([...selectedFoods, { foodId: foodId.toString(), servings: 1.0 }]);
@@ -172,67 +192,109 @@ const MealForm: React.FC<MealFormProps> = ({ initialMeal, onSubmit }) => {
 
   // Modificar a função handleSubmit para simplificar a normalização de IDs
 
-const handleSubmit = (e: React.FormEvent) => {
+// ATUALIZADO: submit assíncrono para materializar defaults como públicos
+const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
-  
+
+  // mapear default-* -> criar como público (isPublic: true) se ainda não existir
+  const defaultsInUse = selectedFoods
+    .map(sf => sf.foodId.toString())
+    .filter(id => id.startsWith('default-'));
+
+  // criar apenas uma vez por default-id
+  const uniqueDefaults = Array.from(new Set(defaultsInUse));
+
+  // mapa default-id -> novo id numérico
+  const defaultIdMap: Record<string, number> = {};
+
+  // tentar reaproveitar públicos existentes por nome (evita duplicatas)
+  for (const defId of uniqueDefaults) {
+    const df = defaultFoods.find(d => d.id === defId);
+    if (!df) continue;
+
+    // procurar em publicFoods por nome igual
+    const existing = publicFoods.find(p => p.name === df.name);
+    if (existing) {
+      defaultIdMap[defId] = existing.id;
+      continue;
+    }
+
+    try {
+      const payload = {
+        name: df.name,
+        weight: df.weight,
+        calories: df.calories,
+        protein: df.protein,
+        carbs: df.carbs,
+        fat: df.fat,
+        isPublic: true
+      };
+      const created = await apiServices.createFood(payload);
+      defaultIdMap[defId] = created.data.id;
+    } catch (err) {
+      console.error("Falha ao criar alimento padrão como público:", err);
+    }
+  }
+
   // Normaliza os IDs dos alimentos para números
   const normalizedFoods = selectedFoods.map(item => {
+    const fidStr = item.foodId.toString();
+    // se for default-*, substitui pelo id público criado/encontrado
+    if (fidStr.startsWith('default-')) {
+      const mapped = defaultIdMap[fidStr];
+      if (typeof mapped === 'number') {
+        return { foodId: mapped, servings: parseFloat(item.servings.toString()) };
+      }
+      // se não conseguiu mapear, ignora o item (não enviar inválido)
+      return null;
+    }
+
+    // caso normal (da API), garantir numérico
     const fid = ensureNumericFoodId(item.foodId);
     if (fid === -1) return null;
+
     return {
       foodId: fid,
       servings: parseFloat(item.servings.toString())
     };
-  }).filter(Boolean); // Remover itens inválidos
-  
+  }).filter(Boolean);
+
   console.log('Alimentos normalizados para envio:', normalizedFoods);
-  
+
   const meal: Partial<Meal> = {
-    // Não defina ID para novas refeições
-    ...(initialMeal?.id && { id: initialMeal.id }), // Só inclui ID se for edição
+    ...(initialMeal?.id && { id: initialMeal.id }),
     name,
     time,
-    foods: normalizedFoods
+    foods: normalizedFoods as any
   };
-  
-  // Log detalhado para depuração
+
   console.log('Enviando refeição para o backend:', JSON.stringify(meal, null, 2));
-  
+
   onSubmit(meal as Meal);
+
+  // opcional: refresh listas públicas após criar defaults
+  if (Object.keys(defaultIdMap).length > 0) {
+    await fetchFoods();
+  }
 };
 
   const handleFoodCreated = (newFood) => {
     setFoods([...foods, newFood]);
   };
 
-  // Modifique a função getFoodById para tratar IDs com mais flexibilidade
+  // Simpler: buscar alimento em qualquer fonte
 const getFoodById = (foodId: string) => {
-  // Normaliza o ID - remove prefixo 'f' para comparação
-  const normalizedId = foodId.toString().startsWith('f') 
-    ? foodId.substring(1) 
-    : foodId;
-    
-  // Log para depuração
-  console.log(`Procurando alimento. ID original: ${foodId}, ID normalizado: ${normalizedId}`);
-  
-  // Primeiro tenta com ID exato
-  let apiFood = foods.find(food => food.id === foodId);
-  if (apiFood) return apiFood;
-  
-  // Tenta com ID numérico
-  apiFood = foods.find(food => food.id === parseInt(normalizedId) || food.id === `f${normalizedId}`);
-  if (apiFood) return apiFood;
-  
-  // Tenta com prefixo f
-  apiFood = foods.find(food => `f${food.id}` === foodId);
-  if (apiFood) return apiFood;
-  
-  // Procura nos alimentos padrão
-  const defaultFood = defaultFoods.find(food => food.id === foodId);
-  if (defaultFood) return defaultFood;
-  
-  console.warn(`Alimento não encontrado para ID: ${foodId}`);
-  return null;
+  const fidStr = foodId.toString();
+  // procurar default
+  if (fidStr.startsWith('default-')) {
+    return defaultFoods.find(f => f.id === fidStr) || null;
+  }
+  const idNum = ensureNumericFoodId(fidStr);
+  return (
+    myFoods.find(f => f.id === idNum) ||
+    publicFoods.find(f => f.id === idNum) ||
+    null
+  );
 };
 
   return (
@@ -288,14 +350,21 @@ const getFoodById = (foodId: string) => {
           </SelectTrigger>
           <SelectContent>
             {showDefaultFoods ? (
-              defaultFoods.map(food => (
-                <SelectItem key={food.id} value={food.id}>
-                  {food.name} - {food.calories} kcal
-                </SelectItem>
-              ))
+              <>
+                {publicFoods.map(food => (
+                  <SelectItem key={`pub-${food.id}`} value={food.id}>
+                    {food.name} - {food.calories} kcal
+                  </SelectItem>
+                ))}
+                {defaultFoods.map(food => (
+                  <SelectItem key={food.id} value={food.id}>
+                    {food.name} - {food.calories} kcal
+                  </SelectItem>
+                ))}
+              </>
             ) : (
-              foods.map(food => (
-                <SelectItem key={food.id} value={food.id}>
+              myFoods.map(food => (
+                <SelectItem key={`my-${food.id}`} value={food.id}>
                   {food.name} - {food.calories} kcal
                 </SelectItem>
               ))
