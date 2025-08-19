@@ -8,14 +8,16 @@ datasource db {
 }
 
 model User {
-  id              Int              @id @default(autoincrement())
-  name            String
-  email           String           @unique
-  password_hash   String
-  weight          Float?
-  height          Float?
-  birthdate       String?
-  created_at      DateTime         @default(now())
+  id            Int      @id @default(autoincrement())
+  name          String
+  email         String   @unique
+  password_hash String
+  weight        Float?
+  height        Float?
+  birthdate     String?
+  created_at    DateTime @default(now())
+
+  // Relacionamentos
   nutritionGoals  NutritionGoals?
   deviceData      DeviceData[]
   foodDiaries     FoodDiary[]
@@ -26,17 +28,24 @@ model User {
   feedback        UserFeedback[]
   workoutPlans    WorkoutPlan[]
   workoutSessions WorkoutSession[]
+  exercises       Exercise[] // ← ADICIONAR ESTA LINHA
 
   @@map("users")
 }
 
 model Exercise {
-  id                      Int                      @id @default(autoincrement())
-  name                    String
-  muscle_group            String?
-  description             String?
-  workoutPlanExercises    WorkoutPlanExercise[]
-  workoutSessionExercises WorkoutSessionExercise[]
+  id           Int      @id @default(autoincrement())
+  name         String
+  muscle_group String
+  equipment    String?
+  instructions String?
+  user_id      Int?
+  is_public    Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  user                   User?                    @relation(fields: [user_id], references: [id])
+  workout_plan_exercises WorkoutPlanExercise[]
+  session_exercises      WorkoutSessionExercise[]
 
   @@map("exercises")
 }
@@ -69,56 +78,67 @@ model Badge {
 }
 
 model WorkoutPlan {
-  id         Int                   @id @default(autoincrement())
-  user_id    Int
-  title      String
-  start_date DateTime              @db.Date
-  end_date   DateTime              @db.Date
-  created_at DateTime              @default(now())
-  exercises  WorkoutPlanExercise[]
-  user       User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id          Int      @id @default(autoincrement())
+  name        String
+  day_of_week Int // 0-6, domingo a sábado
+  notes       String?
+  user_id     Int
+  is_public   Boolean  @default(false)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  user      User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  exercises WorkoutPlanExercise[]
+  sessions  WorkoutSession[]
 
   @@map("workout_plans")
 }
 
 model WorkoutPlanExercise {
-  plan_id     Int
-  exercise_id Int
-  day_of_week Int
-  sets        Int
-  reps        Int
-  load_kg     Decimal?    @db.Decimal(5, 2)
-  notes       String?
-  exercise    Exercise    @relation(fields: [exercise_id], references: [id])
-  plan        WorkoutPlan @relation(fields: [plan_id], references: [id], onDelete: Cascade)
+  id              Int     @id @default(autoincrement())
+  workout_plan_id Int
+  exercise_id     Int
+  sets            Int
+  reps            Int
+  weight_kg       Float
+  rest_seconds    Int?
+  notes           String?
+  order_index     Int     @default(0)
 
-  @@id([plan_id, exercise_id, day_of_week])
+  workout_plan WorkoutPlan @relation(fields: [workout_plan_id], references: [id], onDelete: Cascade)
+  exercise     Exercise    @relation(fields: [exercise_id], references: [id])
+
   @@map("workout_plan_exercises")
 }
 
 model WorkoutSession {
-  id           Int                      @id @default(autoincrement())
-  user_id      Int
-  date         DateTime                 @db.Date
-  completed_at DateTime?
-  notes        String?
-  exercises    WorkoutSessionExercise[]
+  id              Int       @id @default(autoincrement())
+  date            DateTime
+  completed_at    DateTime?
+  notes           String?
+  user_id         Int
+  workout_plan_id Int?
+  created_at      DateTime  @default(now())
+
   user         User                     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  workout_plan WorkoutPlan?             @relation(fields: [workout_plan_id], references: [id])
+  exercises    WorkoutSessionExercise[]
 
   @@map("workout_sessions")
 }
 
 model WorkoutSessionExercise {
-  session_id     Int
-  exercise_id    Int
-  actual_sets    Int
-  actual_reps    Int
-  actual_load_kg Decimal?       @db.Decimal(5, 2)
-  comments       String?
-  exercise       Exercise       @relation(fields: [exercise_id], references: [id])
-  session        WorkoutSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  id               Int     @id @default(autoincrement())
+  session_id       Int
+  exercise_id      Int
+  actual_sets      Int
+  actual_reps      Int
+  actual_weight_kg Float
+  comments         String?
 
-  @@id([session_id, exercise_id])
+  session  WorkoutSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  exercise Exercise       @relation(fields: [exercise_id], references: [id])
+
   @@map("workout_session_exercises")
 }
 
@@ -183,6 +203,8 @@ model UserFeedback {
   id         Int      @id @default(autoincrement())
   user_id    Int?
   name       String?
+  email      String?
+  rating     Int?
   sentiment  Int?
   comment    String
   created_at DateTime @default(now())
@@ -220,18 +242,18 @@ model Meal {
   time       String?
   mealPlanId Int
   mealFoods  MealFood[]
-  mealPlan   MealPlan   @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  mealPlan   MealPlan   @relation(fields: [mealPlanId], references: [id])
 
   @@map("meals")
 }
 
 model MealFood {
   id       Int   @id @default(autoincrement())
-  quantity Float
   mealId   Int
   foodId   Int
+  quantity Float
+  meal     Meal  @relation(fields: [mealId], references: [id])
   food     Food  @relation(fields: [foodId], references: [id])
-  meal     Meal  @relation(fields: [mealId], references: [id], onDelete: Cascade)
 
   @@map("meal_foods")
 }

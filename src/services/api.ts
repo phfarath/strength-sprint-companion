@@ -28,14 +28,18 @@ export const apiServices = {
   updateNutritionGoals: (goals) => api.put('/users/profile/nutrition-goals', goals),
 
   // Exercises
-  getExercises: () => api.get('/exercises'),
-  getExercise: (id) => api.get(`/exercises/${id}`),
-
+  getExercises: () => api.get('/workouts/exercises'),
+  createExercise: (exerciseData: any) => api.post('/workouts/exercises', exerciseData),
+  
   // Workouts
   getWorkoutPlans: () => api.get('/workouts/plans'),
-  createWorkoutPlan: (plan) => api.post('/workouts/plans', plan),
-  updateWorkoutPlan: (id, plan) => api.put(`/workouts/plans/${id}`, plan),
-  deleteWorkoutPlan: (id) => api.delete(`/workouts/plans/${id}`),
+  createWorkoutPlan: (planData: any) => api.post('/workouts/plans', planData),
+  updateWorkoutPlan: (id: string, planData: any) => api.put(`/workouts/plans/${id}`, planData),
+  deleteWorkoutPlan: (id: string) => api.delete(`/workouts/plans/${id}`),
+  
+  // Workout Sessions
+  getWorkoutSessions: () => api.get('/workouts/sessions'),
+  createWorkoutSession: (sessionData: any) => api.post('/workouts/sessions', sessionData),
 
   // Nutrition - Foods
   getFoods: () => api.get('/nutrition/foods'),              // combinado (compat)
@@ -53,9 +57,20 @@ export const apiServices = {
   deleteMealPlan: (id) => api.delete(`/nutrition/meal-plans/${id}`),
 
   // Progress
-  getWorkoutSessions: () => api.get('/progress/workout'),
+  getWorkoutProgress: () => api.get('/progress/workout'),
   getNutritionProgress: () => api.get('/progress/nutrition'),
   logDeviceData: (data) => api.post('/progress/device', data),
+
+  // User Feedback
+  submitFeedback: (feedbackData: {
+    name?: string;
+    email?: string; 
+    message: string;
+    feedbackType: 'positive' | 'neutral' | 'negative';
+    rating?: number;
+  }) => api.post('/users/feedback', feedbackData),
+  
+  getUserFeedbacks: () => api.get('/users/feedback'),
 };
 
 export default api;
