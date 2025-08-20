@@ -26,6 +26,7 @@ export const apiServices = {
   getProfile: () => api.get('/users/profile'),
   updateProfile: (profileData) => api.put('/users/profile', profileData),
   updateNutritionGoals: (goals) => api.put('/users/profile/nutrition-goals', goals),
+  googleLogin: (data: { idToken: string }) => api.post('/users/google-login', data),
 
   // Exercises
   getExercises: () => api.get('/workouts/exercises'),

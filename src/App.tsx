@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@radix-ui/react-tooltip';
 import { Toaster } from '@/components/ui/toaster';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // Importações de páginas
 import LandingPage from './pages/LandingPage';
@@ -26,36 +27,38 @@ const queryClient = new QueryClient();
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppProvider>
-        <TooltipProvider>
-          <Router>
-            <Routes>
-              {/* Rotas públicas */}
-              <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
-              <Route path="/auth/login" element={<PublicRoute><Login /></PublicRoute>} />
-              <Route path="/auth/register" element={<PublicRoute><Register /></PublicRoute>} />
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID as string}>
+      <QueryClientProvider client={queryClient}>
+        <AppProvider>
+          <TooltipProvider>
+            <Router>
+              <Routes>
+                {/* Rotas públicas */}
+                <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
+                <Route path="/auth/login" element={<PublicRoute><Login /></PublicRoute>} />
+                <Route path="/auth/register" element={<PublicRoute><Register /></PublicRoute>} />
+                
+                {/* Rotas protegidas */}
+                <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                <Route path="/workout/planning" element={<ProtectedRoute><WorkoutPlanning /></ProtectedRoute>} />
+                <Route path="/workout/execution" element={<ProtectedRoute><WorkoutExecution /></ProtectedRoute>} />
+                <Route path="/workout/progress" element={<ProtectedRoute><WorkoutProgress /></ProtectedRoute>} />
+                <Route path="/nutrition/planning" element={<ProtectedRoute><MealPlanning /></ProtectedRoute>} />
+                <Route path="/nutrition/diary" element={<ProtectedRoute><FoodDiary /></ProtectedRoute>} />
+                <Route path="/progress" element={<ProtectedRoute><ProgressDashboard /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+                <Route path="/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
+                
+                {/* Redirecionar para dashboard se o usuário já estiver autenticado */}
+                <Route path="*" element={<Navigate to="/dashboard" />} />
+              </Routes>
               
-              {/* Rotas protegidas */}
-              <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/workout/planning" element={<ProtectedRoute><WorkoutPlanning /></ProtectedRoute>} />
-              <Route path="/workout/execution" element={<ProtectedRoute><WorkoutExecution /></ProtectedRoute>} />
-              <Route path="/workout/progress" element={<ProtectedRoute><WorkoutProgress /></ProtectedRoute>} />
-              <Route path="/nutrition/planning" element={<ProtectedRoute><MealPlanning /></ProtectedRoute>} />
-              <Route path="/nutrition/diary" element={<ProtectedRoute><FoodDiary /></ProtectedRoute>} />
-              <Route path="/progress" element={<ProtectedRoute><ProgressDashboard /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-              <Route path="/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
-              
-              {/* Redirecionar para dashboard se o usuário já estiver autenticado */}
-              <Route path="*" element={<Navigate to="/dashboard" />} />
-            </Routes>
-            
-            <Toaster />
-          </Router>
-        </TooltipProvider>
-      </AppProvider>
-    </QueryClientProvider>
+              <Toaster />
+            </Router>
+          </TooltipProvider>
+        </AppProvider>
+      </QueryClientProvider>
+    </GoogleOAuthProvider>
   );
 }
 
