@@ -4,6 +4,9 @@ const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth'); // Importe o middleware de autenticação
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const crypto = require('crypto');
 
 const prisma = new PrismaClient();
 
@@ -326,6 +329,65 @@ router.get('/feedback', auth, async (req, res) => {
   } catch (error) {
     console.error('Erro ao buscar feedbacks:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Login com Google
+router.post('/google-login', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ message: 'Token do Google ausente' });
+    }
+
+    // Verificar token do Google
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    const payload = ticket.getPayload();
+    const email = payload.email;
+    const name = payload.name || email;
+    if (!email) {
+      return res.status(400).json({ message: 'Não foi possível obter email do Google' });
+    }
+
+    // Encontrar ou criar usuário
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      // Gera uma senha aleatória para satisfazer constraint de NOT NULL (se existir)
+      const randomPassword = crypto.randomUUID();
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      user = await prisma.user.create({
+        data: {
+          name,
+          email,
+          password_hash: hashedPassword
+        }
+      });
+    }
+
+    // Gerar JWT
+    const token = jwt.sign(
+      { id: user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email
+      }
+    });
+  } catch (error) {
+    console.error('Erro no login com Google:', error);
+    return res.status(500).json({ message: 'Erro no servidor' });
   }
 });
 

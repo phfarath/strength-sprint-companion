@@ -54,6 +54,7 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<LoginResult>;
   register: (userData: { name: string, email: string, password: string }) => Promise<RegisterResult>;
   logout: () => void;
+  loginWithGoogle: (idToken: string) => Promise<LoginResult>;
   
   // Funções de workout
   addWorkoutPlan: (plan: Omit<WorkoutPlan, 'id'>) => void;
@@ -328,6 +329,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setWorkoutLogs([]);
     setMealPlans([]);
     setNotifications([]);
+  };
+
+  // Função para login com Google
+  const loginWithGoogle = async (idToken: string): Promise<LoginResult> => {
+    try {
+      const response = await apiServices.googleLogin({ idToken });
+      const { token, user: userData } = response.data;
+
+      localStorage.setItem('auth_token', token);
+      setIsAuthenticated(true);
+      setUser(userData);
+      fetchUserData();
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Erro ao fazer login com Google:', error);
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Erro ao fazer login com Google'
+      };
+    }
   };
 
   // Atualizar o getTodaysWorkout para usar os dados reais (e não os mockados)
@@ -738,6 +760,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     login,
     register,
     logout,
+    loginWithGoogle,
     
     // Funções de workout (manter as existentes)
     addWorkoutPlan,

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAppContext } from '@/context/AppContext';
 import Logo from '@/components/common/Logo';
 
@@ -14,7 +15,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<{email?: string, password?: string}>({});
-  const { login } = useAppContext();
+  const { login, loginWithGoogle } = useAppContext();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -122,7 +123,52 @@ const Login = () => {
               ) : 'Entrar'}
             </Button>
           </form>
-          
+
+          {/* Divisor */}
+          <div className="my-4 flex items-center">
+            <span className="flex-1 h-px bg-gray-200" />
+            <span className="px-3 text-sm text-gray-500">ou</span>
+            <span className="flex-1 h-px bg-gray-200" />
+          </div>
+
+          {/* Botão Google */}
+          <div className="flex justify-center">
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                const idToken = credentialResponse.credential;
+                if (!idToken) {
+                  toast({
+                    title: "Falha no login com Google",
+                    description: "Não foi possível obter o token do Google.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                const result = await loginWithGoogle(idToken);
+                if (result.success) {
+                  toast({
+                    title: "Login realizado com sucesso",
+                    description: "Bem-vindo de volta ao StrengthSprint!",
+                  });
+                  navigate('/');
+                } else {
+                  toast({
+                    title: "Erro ao fazer login",
+                    description: result.message || "Tente novamente.",
+                    variant: "destructive"
+                  });
+                }
+              }}
+              onError={() => {
+                toast({
+                  title: "Falha no login com Google",
+                  description: "Tente novamente.",
+                  variant: "destructive"
+                });
+              }}
+            />
+          </div>
+
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Não tem uma conta?{' '}
