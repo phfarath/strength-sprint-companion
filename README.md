@@ -1,91 +1,73 @@
-# Welcome to your Lovable project
+# StrengthSprint Companion - Funcionalidades de IA
 
-## Project info
+Este projeto foi estendido com funcionalidades avançadas de Inteligência Artificial para criar treinos personalizados, dietas, avaliações corporais, análises de documentos de saúde e respostas a dúvidas.
 
-**URL**: https://lovable.dev/projects/e68c96c7-a832-47d9-b255-cd099751b82f
+## Funcionalidades de IA Implementadas
 
-## How can I edit this code?
+### 1. Assistente de IA
+- **Rota:** `/ai/assistant`
+- **Componente:** `src/pages/ai/AIAssistant.tsx`
+- **Descrição:** Interface para fazer perguntas e obter respostas personalizadas com base nos dados do usuário.
 
-There are several ways of editing your application.
+### 2. Avaliação Corporal com IA
+- **Rota:** `/ai/assessment`
+- **Componente:** `src/pages/ai/BodyAssessment.tsx`
+- **Descrição:** Avaliação completa da saúde com base em dados biométricos, histórico de atividades e preferências.
 
-**Use Lovable**
+### 3. Análise de Documentos de Saúde
+- **Rota:** `/ai/documents`
+- **Componente:** `src/pages/ai/DocumentAnalysis.tsx`
+- **Descrição:** Análise de documentos médicos como exames, laudos e relatórios para obter insights personalizados.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e68c96c7-a832-47d9-b255-cd099751b82f) and start prompting.
+## Integração com Backend
 
-Changes made via Lovable will be committed automatically to this repo.
+### Serviços de IA
+- **Arquivo:** `backend/services/aiService.js`
+- **Descrição:** Serviço que integra com a API do OpenAI para gerar respostas personalizadas.
 
-**Use your preferred IDE**
+### Rotas da API
+- **Arquivo:** `backend/routes/ai.js`
+- **Endpoints:**
+  - `POST /api/ai/workout-plan` - Gera plano de treino personalizado
+  - `POST /api/ai/meal-plan` - Gera plano alimentar personalizado
+  - `POST /api/ai/health-assessment` - Realiza avaliação de saúde
+  - `POST /api/ai/document-analysis` - Analisa documentos de saúde
+  - `POST /api/ai/question` - Responde perguntas do usuário
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Componentes com IA Integrada
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### Formulário de Treino com IA
+- **Componente:** `src/components/workout/WorkoutFormWithAI.tsx`
+- **Descrição:** Formulário que sugere exercícios com base nos objetivos do usuário.
 
-Follow these steps:
+### Formulário de Plano Alimentar com IA
+- **Componente:** `src/components/nutrition/MealPlanFormWithAI.tsx`
+- **Descrição:** Formulário que sugere alimentos e refeições com base nas necessidades nutricionais.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Implementação Progressiva
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+A implementação foi feita de forma progressiva, adicionando:
 
-# Step 3: Install the necessary dependencies.
-npm i
+1. **Backend:** Serviços e rotas da API para integração com IA
+2. **Frontend:** Componentes e páginas para interface do usuário
+3. **Navegação:** Adição de itens de menu para acessar as funcionalidades
+4. **Contexto:** Integração com o contexto da aplicação para acesso às funções de IA
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## Como Usar
 
-**Edit a file directly in GitHub**
+1. Acesse qualquer uma das páginas de IA através do menu de navegação
+2. Preencha os formulários com seus dados
+3. Receba recomendações personalizadas geradas pela IA
+4. Utilize o assistente de IA para tirar dúvidas específicas
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Tecnologias Utilizadas
 
-**Use GitHub Codespaces**
+- **OpenAI API:** Para geração de conteúdo personalizado
+- **React:** Para interface do usuário
+- **Express:** Para backend
+- **Prisma:** Para ORM
+- **TypeScript:** Para tipagem estática
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Configuração
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/e68c96c7-a832-47d9-b255-cd099751b82f) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
-
-## Backend setup
-
-The backend uses PostgreSQL via Prisma. To connect to a Neon database:
-
-1. Copy `backend/.env.example` to `backend/.env` and fill in your `DATABASE_URL` (from Neon) and a `JWT_SECRET`.
-2. Apply database migrations:
-
-```sh
-cd backend
-npx prisma migrate deploy
-```
-
-3. Start the API server:
-
-```sh
-npm start
-```
+Para utilizar as funcionalidades de IA, é necessário configurar a variável de ambiente `OPENAI_API_KEY` no arquivo `.env` do backend.

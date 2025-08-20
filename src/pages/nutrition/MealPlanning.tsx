@@ -8,6 +8,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiServices } from '@/services/api';
 import { format } from 'date-fns';
 import MealPlanForm from '@/components/nutrition/MealPlanForm';
+import MealPlanFormWithAI from '@/components/nutrition/MealPlanFormWithAI';
 import FoodModal from '@/components/nutrition/FoodModal';
 import { MealPlan } from '@/types';
 import { Edit, Trash, Plus, Calendar, Search } from 'lucide-react';
@@ -470,7 +471,7 @@ const MealPlanning: React.FC = () => {
                       <p className="text-gray-600">Configure um novo plano de refeições personalizado.</p>
                     </CardHeader>
                     <CardContent>
-                      <MealPlanForm onSubmit={handleCreateMealPlan} />
+                      <MealPlanFormWithAI onSubmit={handleCreateMealPlan} />
                     </CardContent>
                   </Card>
                 </motion.div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bell, Menu, X, User, Settings, LogOut, Zap } from 'lucide-react';
+import { Bell, Menu, X, User, Settings, LogOut, Zap, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/context/AppContext';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +43,8 @@ const Navbar = () => {
     { to: "/dashboard", label: "Dashboard", icon: "📊" },
     { to: "/workout/planning", label: "Treinos", icon: "💪" },
     { to: "/nutrition/planning", label: "Nutrição", icon: "🥗" },
-    { to: "/progress", label: "Progresso", icon: "📈" }
+    { to: "/progress", label: "Progresso", icon: "📈" },
+    { to: "/ai/assistant", label: "IA", icon: "🧠" }
   ];
 
   const isActivePath = (path: string) => {
