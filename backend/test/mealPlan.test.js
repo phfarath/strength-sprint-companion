@@ -1,54 +1,93 @@
 const request = require('supertest');
+const jwt = require('jsonwebtoken');
+
+process.env.JWT_SECRET = 'testsecret';
+
+const mockPrisma = {
+  $queryRaw: jest.fn().mockResolvedValue([{ test: 1 }]),
+  mealPlan: {
+    findMany: jest.fn(),
+    findFirst: jest.fn(),
+    create: jest.fn(),
+    findUnique: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn()
+  },
+  meal: {
+    create: jest.fn(),
+    deleteMany: jest.fn()
+  },
+  mealFood: {
+    create: jest.fn(),
+    deleteMany: jest.fn(),
+    count: jest.fn()
+  },
+  food: {
+    findUnique: jest.fn(),
+    findMany: jest.fn()
+  },
+  $transaction: jest.fn(async (cb) => cb(mockPrisma))
+};
+
+jest.mock('@prisma/client', () => ({
+  PrismaClient: jest.fn(() => mockPrisma)
+}));
+
 const app = require('../index');
+const token = jwt.sign({ id: 1 }, process.env.JWT_SECRET);
 
-describe('MealPlan API', () => {
-  let token = '';
-
-  beforeAll(async () => {
-    // Crie um usuário de teste (ou garanta que ele exista)
-    await request(app)
-      .post('/api/users/register')
-      .send({
-        name: 'Test User',
-        email: 'testuser@example.com',
-        password: 'testpassword'
-      });
-
-    // Faça login para obter o token
-    const loginRes = await request(app)
-      .post('/api/users/login')
-      .send({
-        email: 'testuser@example.com',
-        password: 'testpassword'
-      });
-
-    console.log('LOGIN RESPONSE:', loginRes.body);
-
-    token = loginRes.body.token;
-    expect(token).toBeDefined();
+describe('Meal Plans API', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('deve criar um novo plano alimentar', async () => {
-    const response = await request(app)
+  test('creates a meal plan', async () => {
+    mockPrisma.mealPlan.create.mockResolvedValueOnce({ id: 1 });
+    mockPrisma.mealPlan.findUnique.mockResolvedValueOnce({ id: 1, name: 'Plan', date: '2024-01-01', meals: [] });
+
+    const res = await request(app)
       .post('/api/nutrition/meal-plans')
       .set('Authorization', `Bearer ${token}`)
-      .send({
-        name: 'Plano Teste',
-        date: '2025-08-21',
-        frequency: 'diario',
-        notes: 'Plano de teste automatizado',
-        meals: []
-      });
-    expect(response.statusCode).toBe(201); // <-- altere para 201
-    expect(response.body).toHaveProperty('id');
-    expect(response.body.name).toBe('Plano Teste');
+      .send({ name: 'Plan', date: '2024-01-01', meals: [] });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body).toHaveProperty('name', 'Plan');
   });
 
-  it('deve buscar planos alimentares', async () => {
-    const response = await request(app)
+  test('lists user meal plans', async () => {
+    mockPrisma.mealPlan.findMany.mockResolvedValueOnce([{ id: 1, name: 'Plan', date: '2024-01-01', meals: [], is_public: false }]);
+
+    const res = await request(app)
       .get('/api/nutrition/meal-plans')
       .set('Authorization', `Bearer ${token}`);
-    expect(response.statusCode).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveLength(1);
+  });
+
+  test('updates a meal plan', async () => {
+    mockPrisma.mealPlan.findFirst.mockResolvedValueOnce({ id: 1, userId: 1 });
+    mockPrisma.food.findMany.mockResolvedValueOnce([]);
+    mockPrisma.mealPlan.update.mockResolvedValueOnce({ id: 1, name: 'Updated', date: '2024-01-01', meals: [] });
+    
+    const res = await request(app)
+      .put('/api/nutrition/meal-plans/1')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'Updated', date: '2024-01-01', meals: [] });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('name', 'Updated');
+  });
+
+  test('deletes a meal plan', async () => {
+    mockPrisma.mealPlan.findFirst.mockResolvedValueOnce({ id: 1, userId: 1 });
+    mockPrisma.mealPlan.delete.mockResolvedValueOnce({});
+
+    const res = await request(app)
+      .delete('/api/nutrition/meal-plans/1')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toHaveProperty('message');
   });
 });
