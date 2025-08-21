@@ -62,7 +62,7 @@ const Register = () => {
       if (result.success) {
         toast({
           title: "Registro realizado com sucesso",
-          description: "Bem-vindo ao StrengthSprint!",
+          description: "Bem-vindo ao ForgeNFuel!",
         });
         navigate('/');
       } else {
@@ -98,7 +98,7 @@ const Register = () => {
           </div>
           <CardTitle className="text-2xl font-bold">Crie sua conta</CardTitle>
           <CardDescription>
-            Comece sua jornada de fitness e nutrição com o StrengthSprint
+            Comece sua jornada de fitness e nutrição com o ForgeNFuel
           </CardDescription>
         </CardHeader>
         <CardContent>
