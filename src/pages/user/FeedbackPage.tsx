@@ -30,21 +30,21 @@ const FeedbackPage = () => {
               
               <div className="space-y-4 text-sm">
                 <div className="flex items-start">
-                  <div className="bg-blue-100 text-blue-800 rounded-full p-1 mr-2">
+                  <div className="bg-purple-100 text-purple-800 rounded-full p-1 mr-2">
                     <span className="block h-5 w-5 rounded-full text-center">1</span>
                   </div>
                   <p>Analisamos cada feedback individualmente</p>
                 </div>
                 
                 <div className="flex items-start">
-                  <div className="bg-blue-100 text-blue-800 rounded-full p-1 mr-2">
+                  <div className="bg-purple-100 text-purple-800 rounded-full p-1 mr-2">
                     <span className="block h-5 w-5 rounded-full text-center">2</span>
                   </div>
                   <p>Priorizamos as funcionalidades mais solicitadas</p>
                 </div>
                 
                 <div className="flex items-start">
-                  <div className="bg-blue-100 text-blue-800 rounded-full p-1 mr-2">
+                  <div className="bg-purple-100 text-purple-800 rounded-full p-1 mr-2">
                     <span className="block h-5 w-5 rounded-full text-center">3</span>
                   </div>
                   <p>Implementamos melhorias em cada atualização</p>

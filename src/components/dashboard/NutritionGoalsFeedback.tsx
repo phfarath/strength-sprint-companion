@@ -102,9 +102,9 @@ const NutritionGoalsFeedback = () => {
                 key={index}
                 variant={msg.type === "success" ? "default" : msg.type === "warning" ? "destructive" : "outline"}
                 className={`
-                  ${msg.type === "success" ? "bg-green-50 text-green-800 border-green-200" : ""}
+                  ${msg.type === "success" ? "bg-purple-50 text-purple-800 border-purple-200" : ""}
                   ${msg.type === "warning" ? "bg-yellow-50 text-yellow-800 border-yellow-200" : ""}
-                  ${msg.type === "info" ? "bg-blue-50 text-blue-800 border-blue-200" : ""}
+                  ${msg.type === "info" ? "bg-purple-50 text-purple-800 border-purple-200" : ""}
                 `}
               >
                 <AlertDescription>{msg.message}</AlertDescription>
@@ -125,7 +125,7 @@ const NutritionGoalsFeedback = () => {
           <div className="mt-4 grid grid-cols-3 text-center gap-2">
             <div>
               <p className="text-xs text-gray-500">Proteínas</p>
-              <p className="text-lg font-bold text-blue-600">{percentages.protein}%</p>
+              <p className="text-lg font-bold text-purple-600">{percentages.protein}%</p>
             </div>
             <div>
               <p className="text-xs text-gray-500">Carboidratos</p>

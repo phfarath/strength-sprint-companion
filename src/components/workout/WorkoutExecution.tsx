@@ -73,7 +73,7 @@ const WorkoutExecution: React.FC<WorkoutExecutionProps> = ({ workout, onComplete
       
       <div className="space-y-4">
         {workout.exercises.map((exercise, index) => (
-          <Card key={index} className={`border ${completedExercises[index] ? 'border-green-500 bg-green-50' : ''}`}>
+          <Card key={index} className={`border ${completedExercises[index] ? 'border-purple-500 bg-purple-50' : ''}`}>
             <CardContent className="p-4">
               <div 
                 className="flex justify-between items-center cursor-pointer"
@@ -81,7 +81,7 @@ const WorkoutExecution: React.FC<WorkoutExecutionProps> = ({ workout, onComplete
               >
                 <div className="flex items-center">
                   {completedExercises[index] && (
-                    <CheckCircle className="text-green-500 mr-2" size={18} />
+                    <CheckCircle className="text-purple-500 mr-2" size={18} />
                   )}
                   <h3 className="font-medium">{exercise.name}</h3>
                 </div>
@@ -137,7 +137,7 @@ const WorkoutExecution: React.FC<WorkoutExecutionProps> = ({ workout, onComplete
                   
                   <Button 
                     onClick={() => handleCompleteExercise(index)}
-                    className="w-full bg-green-500 hover:bg-green-600"
+                    className="w-full bg-purple-500 hover:bg-purple-600"
                     disabled={completedExercises[index]}
                   >
                     {completedExercises[index] ? 'Exercício Completo' : 'Marcar como Completo'}

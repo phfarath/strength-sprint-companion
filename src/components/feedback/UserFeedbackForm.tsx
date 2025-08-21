@@ -79,7 +79,7 @@ const UserFeedbackForm = () => {
       <Card className="bg-white rounded-lg shadow">
         <CardContent className="pt-6 text-center">
           <div className="mb-4">
-            <Smile className="mx-auto h-12 w-12 text-green-500" />
+            <Smile className="mx-auto h-12 w-12 text-purple-500" />
           </div>
           <h3 className="text-xl font-bold mb-2">Obrigado pelo feedback!</h3>
           <p className="text-gray-600 mb-6">
@@ -155,7 +155,7 @@ const UserFeedbackForm = () => {
                 type="button"
                 variant={feedbackType === 'positive' ? 'default' : 'outline'}
                 className={`flex flex-col items-center p-4 ${
-                  feedbackType === 'positive' ? 'bg-green-500 hover:bg-green-600' : ''
+                  feedbackType === 'positive' ? 'bg-purple-500 hover:bg-purple-600' : ''
                 }`}
                 onClick={() => setFeedbackType('positive')}
                 disabled={isSubmitting}

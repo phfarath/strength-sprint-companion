@@ -204,7 +204,7 @@ const FoodDiary = () => {
                   </div>
                   <Progress value={percentages.protein} className="h-2 bg-gray-200">
                     <div 
-                      className="h-full bg-blue-500" 
+                      className="h-full bg-purple-500" 
                       style={{ width: `${percentages.protein}%` }}
                     ></div>
                   </Progress>
@@ -244,7 +244,7 @@ const FoodDiary = () => {
                   <h3 className="font-medium mb-2">Distribuição de Macronutrientes</h3>
                   <div className="flex h-4 rounded-md overflow-hidden mb-2">
                     <div 
-                      className="bg-blue-500" 
+                      className="bg-purple-500" 
                       style={{ width: `${consumed.protein * 4 / (consumed.protein * 4 + consumed.carbs * 4 + consumed.fat * 9) * 100 || 0}%` }}
                     ></div>
                     <div 
@@ -258,7 +258,7 @@ const FoodDiary = () => {
                   </div>
                   <div className="grid grid-cols-3 text-xs text-center">
                     <div>
-                      <div className="w-3 h-3 bg-blue-500 rounded-full mx-auto mb-1"></div>
+                      <div className="w-3 h-3 bg-purple-500 rounded-full mx-auto mb-1"></div>
                       <p>Proteína</p>
                     </div>
                     <div>

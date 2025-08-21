@@ -26,8 +26,8 @@ const NotificationList = () => {
 
   const getNotificationStyle = (type: string) => {
     const styleMap = {
-      'workout': 'from-blue-50 to-indigo-50 border-blue-200',
-      'nutrition': 'from-green-50 to-emerald-50 border-green-200',
+      'workout': 'from-purple-50 to-purple-50 border-purple-200',
+      'nutrition': 'from-purple-50 to-purple-50 border-purple-200',
       'achievement': 'from-yellow-50 to-orange-50 border-yellow-200',
       'reminder': 'from-purple-50 to-pink-50 border-purple-200',
       'info': 'from-gray-50 to-slate-50 border-gray-200'
@@ -55,11 +55,11 @@ const NotificationList = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 hover:shadow-xl transition-all duration-300">
+      <Card className="bg-gradient-to-br from-purple-50 to-purple-50 border border-purple-200 hover:shadow-xl transition-all duration-300">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
                 <Bell size={20} className="text-white" />
               </div>
               <div>
@@ -105,7 +105,7 @@ const NotificationList = () => {
                     <div className="flex items-start gap-3">
                       <div className={`
                         p-2 rounded-lg shrink-0
-                        ${notification.type === 'workout' ? 'bg-blue-100 text-blue-600' :
+                        ${notification.type === 'workout' ? 'bg-purple-100 text-purple-600' :
                           'bg-gray-100 text-gray-600'
                         }
                       `}>
@@ -130,7 +130,7 @@ const NotificationList = () => {
                                 e.stopPropagation();
                                 handleMarkAsRead(notification.id);
                               }}
-                              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-full transition-colors"
+                              className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-purple-600 hover:text-purple-700 bg-purple-100 hover:bg-purple-200 rounded-full transition-colors"
                             >
                               <Check size={12} />
                               Marcar
@@ -156,7 +156,7 @@ const NotificationList = () => {
                       </div>
                       
                       {!notification.read && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-2" />
+                        <div className="w-2 h-2 bg-purple-500 rounded-full shrink-0 mt-2" />
                       )}
                     </div>
                   </motion.div>
@@ -170,7 +170,7 @@ const NotificationList = () => {
                   transition={{ delay: 0.5 }}
                   className="text-center pt-4"
                 >
-                  <Button asChild variant="outline" size="sm" className="hover:bg-indigo-50 hover:text-indigo-600 border-indigo-200">
+                  <Button asChild variant="outline" size="sm" className="hover:bg-purple-50 hover:text-purple-600 border-purple-200">
                     <a href="/notifications">Ver todas ({notifications.length})</a>
                   </Button>
                 </motion.div>

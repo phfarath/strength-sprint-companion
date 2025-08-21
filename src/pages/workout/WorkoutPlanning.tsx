@@ -229,14 +229,14 @@ const WorkoutPlanning = () => {
                                       animate={{ opacity: 1 }}
                                       className={`border rounded-lg p-4 ${
                                         isCompleted 
-                                          ? 'border-green-500 bg-green-50' 
+                                          ? 'border-purple-500 bg-purple-50' 
                                           : 'border-gray-200 hover:border-fitness-primary transition-colors'
                                       }`}
                                     >
                                       <div className="flex justify-between items-start mb-2">
                                         <h3 className="font-medium text-gray-900 truncate">{workout.name}</h3>
                                         {isCompleted && (
-                                          <CheckCircle size={16} className="text-green-500 ml-2" />
+                                          <CheckCircle size={16} className="text-purple-500 ml-2" />
                                         )}
                                       </div>
                                       
@@ -272,7 +272,7 @@ const WorkoutPlanning = () => {
                                           variant="ghost"
                                           size="icon"
                                           onClick={() => handleEditWorkout(workout)}
-                                          className="hover:bg-blue-50 hover:text-blue-600"
+                                          className="hover:bg-purple-50 hover:text-purple-600"
                                         >
                                           <Edit size={14} />
                                         </Button>
@@ -439,7 +439,7 @@ const WorkoutPlanning = () => {
                             )}
                             {exercise.isPublic && (
                               <div className="mt-2">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
                                   Exercício Padrão
                                 </span>
                               </div>
