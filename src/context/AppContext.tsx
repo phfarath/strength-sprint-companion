@@ -80,6 +80,18 @@ interface AppContextType {
   getTodaysWorkout: () => WorkoutPlan | undefined;
   getCurrentDate: () => string;
   isTodayWorkoutComplete: () => boolean;
+
+  // Funções de alimentos
+  addFood: (foodData: any) => Promise<any>;
+  updateFood: (id: string, foodData: any) => Promise<any>;
+  deleteFood: (id: string) => Promise<any>;
+
+  // Funções de IA
+  generateAIWorkoutPlan: (data: any) => Promise<any>;
+  generateAIMealPlan: (data: any) => Promise<any>;
+  generateAIHealthAssessment: (data: any) => Promise<any>;
+  analyzeAIHealthDocument: (data: any) => Promise<any>;
+  askAIQuestion: (question: string) => Promise<any>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -787,11 +799,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     getCurrentDate,
     isTodayWorkoutComplete,
 
-    // Funções de alimentos
-    addFood,
-    updateFood,
-    deleteFood
-  };
+  // Funções de alimentos
+  addFood,
+  updateFood,
+  deleteFood,
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  // Funções de IA
+  generateAIWorkoutPlan: apiServices.generateWorkoutPlan,
+  generateAIMealPlan: apiServices.generateMealPlan,
+  generateAIHealthAssessment: apiServices.generateHealthAssessment,
+  analyzeAIHealthDocument: apiServices.analyzeHealthDocument,
+  askAIQuestion: apiServices.askAIQuestion,
+};
+
+return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

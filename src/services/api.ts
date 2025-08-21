@@ -72,6 +72,13 @@ export const apiServices = {
   }) => api.post('/users/feedback', feedbackData),
   
   getUserFeedbacks: () => api.get('/users/feedback'),
+
+  // AI Services
+  generateWorkoutPlan: (userData: any) => api.post('/ai/workout-plans', userData),
+  generateMealPlan: (userData: any) => api.post('/ai/meal-plans', userData),
+  generateHealthAssessment: (healthData: any) => api.post('/ai/health-assessment', healthData),
+  analyzeHealthDocument: (documentData: any) => api.post('/ai/document-analysis', documentData),
+  askAIQuestion: (questionData: any) => api.post('/ai/chat', questionData),
 };
 
 export default api;

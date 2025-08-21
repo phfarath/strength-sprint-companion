@@ -43,7 +43,7 @@ const Login = () => {
       if (result.success) {
         toast({
           title: "Login realizado com sucesso",
-          description: "Bem-vindo de volta ao StrengthSprint!",
+          description: "Bem-vindo de volta ao ForgeNFuel!",
         });
         navigate('/');
       } else {
@@ -72,7 +72,7 @@ const Login = () => {
           <div className="flex justify-center mb-4">
             <Logo size="large" />
           </div>
-          <CardTitle className="text-2xl font-bold">Entrar no StrengthSprint</CardTitle>
+          <CardTitle className="text-2xl font-bold">Entrar no ForgeNFuel</CardTitle>
           <CardDescription>
             Entre para acompanhar seus treinos e planos alimentares
           </CardDescription>
@@ -148,7 +148,7 @@ const Login = () => {
                 if (result.success) {
                   toast({
                     title: "Login realizado com sucesso",
-                    description: "Bem-vindo de volta ao StrengthSprint!",
+                    description: "Bem-vindo de volta ao ForgeNFuel!",
                   });
                   navigate('/');
                 } else {

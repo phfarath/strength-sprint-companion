@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import WorkoutForm from '@/components/workout/WorkoutForm';
+import WorkoutFormWithAI from '@/components/workout/WorkoutFormWithAI';
 import { daysOfWeek, WorkoutPlan } from '@/types';
 import { Edit, Trash, Plus, CheckCircle, Calendar, Dumbbell, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -348,7 +349,7 @@ const WorkoutPlanning = () => {
                       <p className="text-gray-600">Configure um novo treino personalizado.</p>
                     </CardHeader>
                     <CardContent>
-                      <WorkoutForm onSubmit={handleCreateWorkout} />
+                      <WorkoutFormWithAI onSubmit={handleCreateWorkout} />
                     </CardContent>
                   </Card>
                 </motion.div>

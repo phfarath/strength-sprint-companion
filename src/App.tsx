@@ -19,6 +19,11 @@ import FoodDiary from './pages/nutrition/FoodDiary';
 import ProfileSettings from './pages/user/ProfileSettings';
 import FeedbackPage from './pages/user/FeedbackPage';
 
+// Importações de páginas de IA
+import AIAssistant from './pages/ai/AIAssistant';
+import BodyAssessment from './pages/ai/BodyAssessment';
+import DocumentAnalysis from './pages/ai/DocumentAnalysis';
+
 // Importação de componentes e contexto
 import { AppProvider } from './context/AppContext';
 import { ProtectedRoute, PublicRoute } from './components/routing/RouteGuards';
@@ -48,6 +53,11 @@ function App() {
                 <Route path="/progress" element={<ProtectedRoute><ProgressDashboard /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
                 <Route path="/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
+                
+                {/* Rotas de IA */}
+                <Route path="/ai/assistant" element={<ProtectedRoute><AIAssistant /></ProtectedRoute>} />
+                <Route path="/ai/assessment" element={<ProtectedRoute><BodyAssessment /></ProtectedRoute>} />
+                <Route path="/ai/documents" element={<ProtectedRoute><DocumentAnalysis /></ProtectedRoute>} />
                 
                 {/* Redirecionar para dashboard se o usuário já estiver autenticado */}
                 <Route path="*" element={<Navigate to="/dashboard" />} />
