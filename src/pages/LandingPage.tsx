@@ -31,7 +31,7 @@ const LandingPage = () => {
             </h1>
             <p className="text-xl text-gray-700">
               Monitore seus treinos, planeje suas refeições e alcance seus objetivos de forma eficiente 
-              com a plataforma completa StrengthSprint.
+              com a plataforma completa ForgeNFuel.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button asChild size="lg" className="bg-fitness-primary hover:bg-fitness-primary/90">
@@ -45,7 +45,7 @@ const LandingPage = () => {
           <div className="lg:w-1/2">
             <img 
               src="/dashboard-preview.png" 
-              alt="Dashboard do StrengthSprint" 
+              alt="Dashboard do ForgeNFuel" 
               className="rounded-lg shadow-2xl"
             />
           </div>
@@ -108,7 +108,7 @@ const LandingPage = () => {
             <TestimonialCard 
               name="Carlos Silva"
               role="Usuário há 6 meses"
-              quote="O StrengthSprint mudou completamente minha abordagem de treino. Consigo planejar e acompanhar tudo de forma muito mais eficiente."
+              quote="O ForgeNFuel mudou completamente minha abordagem de treino. Consigo planejar e acompanhar tudo de forma muito mais eficiente."
             />
             <TestimonialCard 
               name="Marina Santos"
@@ -129,7 +129,7 @@ const LandingPage = () => {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Pronto para Transformar seus Hábitos?</h2>
           <p className="text-xl text-gray-700 mb-8 max-w-3xl mx-auto">
-            Junte-se a milhares de pessoas que já estão alcançando seus objetivos com o StrengthSprint.
+            Junte-se a milhares de pessoas que já estão alcançando seus objetivos com o ForgeNFuel.
           </p>
           <Button asChild size="lg" className="bg-fitness-primary hover:bg-fitness-primary/90">
             <Link to="/auth/register">Começar Gratuitamente</Link>
@@ -153,7 +153,7 @@ const LandingPage = () => {
             </div>
           </div>
           <div className="text-center text-gray-400">
-            <p>&copy; {new Date().getFullYear()} StrengthSprint. Todos os direitos reservados.</p>
+            <p>&copy; {new Date().getFullYear()} ForgeNFuel. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>
