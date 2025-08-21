@@ -18,7 +18,7 @@ const badgeVariants = cva(
         achievement:
           "border-yellow-200 bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
         progress:
-          "border-green-200 bg-green-100 text-green-800 hover:bg-green-200",
+          "border-purple-200 bg-purple-100 text-purple-800 hover:bg-purple-200",
         fitness:
           "border-fitness-primary/20 bg-fitness-primary/10 text-fitness-primary hover:bg-fitness-primary/20",
       },

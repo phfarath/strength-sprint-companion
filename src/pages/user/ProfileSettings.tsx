@@ -240,7 +240,7 @@ const ProfileSettings = () => {
                     <h3 className="font-medium mb-2">Distribuição de Macronutrientes</h3>
                     <div className="flex h-4 rounded-md overflow-hidden mb-2">
                       <div 
-                        className="bg-blue-500" 
+                        className="bg-purple-500" 
                         style={{ width: `${nutritionGoals.protein * 4 / (nutritionGoals.protein * 4 + nutritionGoals.carbs * 4 + nutritionGoals.fat * 9) * 100}%` }}
                       ></div>
                       <div 

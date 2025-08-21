@@ -327,7 +327,7 @@ const MealPlanning: React.FC = () => {
                                     size="icon"
                                     onClick={() => handleEditMealPlan(mealPlan)}
                                     title="Editar plano"
-                                    className="hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                    className="hover:bg-purple-50 hover:text-purple-600 transition-colors"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>

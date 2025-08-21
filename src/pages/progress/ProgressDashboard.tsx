@@ -234,7 +234,7 @@ const ProgressDashboard = () => {
                           <div className="text-right">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               log.completed 
-                                ? 'bg-green-100 text-green-800' 
+                                ? 'bg-purple-100 text-purple-800' 
                                 : 'bg-amber-100 text-amber-800'
                             }`}>
                               {log.completed ? 'Concluído' : 'Incompleto'}
@@ -280,29 +280,29 @@ const ProgressDashboard = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="border rounded-lg p-4 text-center">
                       <p className="text-sm text-gray-500 mb-2">Proteínas</p>
-                      <p className="text-2xl font-bold text-blue-600 mb-1">25%</p>
+                      <p className="text-2xl font-bold text-purple-600 mb-1">25%</p>
                       <p className="text-xs text-gray-500">Ideal: 25-35%</p>
-                      <div className="mt-2 text-xs text-green-600">✓ Dentro da meta</div>
+                      <div className="mt-2 text-xs text-purple-600">✓ Dentro da meta</div>
                     </div>
                     
                     <div className="border rounded-lg p-4 text-center">
                       <p className="text-sm text-gray-500 mb-2">Carboidratos</p>
                       <p className="text-2xl font-bold text-yellow-600 mb-1">50%</p>
                       <p className="text-xs text-gray-500">Ideal: 45-55%</p>
-                      <div className="mt-2 text-xs text-green-600">✓ Dentro da meta</div>
+                      <div className="mt-2 text-xs text-purple-600">✓ Dentro da meta</div>
                     </div>
                     
                     <div className="border rounded-lg p-4 text-center">
                       <p className="text-sm text-gray-500 mb-2">Gorduras</p>
                       <p className="text-2xl font-bold text-red-600 mb-1">25%</p>
                       <p className="text-xs text-gray-500">Ideal: 20-30%</p>
-                      <div className="mt-2 text-xs text-green-600">✓ Dentro da meta</div>
+                      <div className="mt-2 text-xs text-purple-600">✓ Dentro da meta</div>
                     </div>
                   </div>
                   
-                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-medium text-blue-900 mb-2">Recomendações</h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
+                  <div className="mt-6 p-4 bg-purple-50 rounded-lg">
+                    <h4 className="font-medium text-purple-900 mb-2">Recomendações</h4>
+                    <ul className="text-sm text-purple-800 space-y-1">
                       <li>• Sua distribuição de macronutrientes está equilibrada</li>
                       <li>• Continue mantendo o consumo de proteínas para preservar massa muscular</li>
                       <li>• Considere ajustar as porções conforme seus objetivos de treino</li>

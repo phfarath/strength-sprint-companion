@@ -82,7 +82,7 @@ const WorkoutProgress = () => {
                   <div key={log.id} className="border rounded-md p-4">
                     <div className="flex justify-between mb-2">
                       <h3 className="font-semibold">{log.date}</h3>
-                      <span className={`px-2 py-1 rounded-full text-xs ${log.completed ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                      <span className={`px-2 py-1 rounded-full text-xs ${log.completed ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'}`}>
                         {log.completed ? 'Concluído' : 'Parcial'}
                       </span>
                     </div>

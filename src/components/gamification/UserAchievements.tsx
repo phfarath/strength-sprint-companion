@@ -28,7 +28,7 @@ const UserAchievements = () => {
     if (mealPlans.length >= 3) {
       titles.push({
         name: "Nutricionista da Própria Vida",
-        icon: <Award className="h-5 w-5 text-blue-500" />
+        icon: <Award className="h-5 w-5 text-purple-500" />
       });
     }
     
