@@ -45,7 +45,7 @@ app.use((req, res, next) => {
 
 // Basic route
 app.get('/', (req, res) => {
-  res.send('StrengthSprint API is running');
+  res.send('ForgeNFuel API is running');
 });
 
 // Routes setup

@@ -82,7 +82,7 @@ const Navbar = () => {
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg opacity-0 group-hover:opacity-20 transition-opacity blur-xl"></div>
               </div>
               <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                StrengthSprint
+                ForgeNFuel
               </span>
             </Link>
             

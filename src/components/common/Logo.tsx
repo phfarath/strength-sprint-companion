@@ -31,7 +31,7 @@ const Logo: React.FC<LogoProps> = ({ size = 'medium' }) => {
     <div className={containerClass}>
       <Activity size={iconSize} className="text-fitness-primary" />
       <span className={`${textClass} text-fitness-primary`}>
-        Strength<span className="text-fitness-secondary">Sprint</span>
+        Forge<span className="text-fitness-secondary">NFuel</span>
       </span>
     </div>
   );
