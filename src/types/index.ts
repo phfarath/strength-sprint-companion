@@ -64,6 +64,7 @@ export interface MealPlan {
   id: string;
   name: string; // Adicionando a propriedade name
   date: string;
+  frequency?: 'daily' | 'weekly' | 'monthly' | 'none'; // Adicionando campo de frequência
   meals: Meal[];
   notes?: string;
   isPublic?: boolean;

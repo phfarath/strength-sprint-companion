@@ -268,7 +268,7 @@ router.get('/meal-plans/public', auth, async (req, res) => {
 router.post('/meal-plans', auth, async (req, res) => {
   try {
     console.log('Criando plano alimentar, dados recebidos:', JSON.stringify(req.body, null, 2));
-    const { name, date, meals, notes, isPublic } = req.body;
+    const { name, date, frequency, meals, notes, isPublic } = req.body;
     
     if (!name || !date) {
       return res.status(400).json({ message: 'Nome e data são obrigatórios' });
@@ -286,6 +286,7 @@ router.post('/meal-plans', auth, async (req, res) => {
         data: {
           name,
           date,
+          frequency: frequency || null,
           notes: notes || null,
           is_public: Boolean(isPublic), // <- ajustado
           userId
@@ -385,7 +386,7 @@ router.put('/meal-plans/:id', auth, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const userId = parseInt(req.user.id);
-    const { name, date, meals, notes, isPublic } = req.body;
+  const { name, date, frequency, meals, notes, isPublic } = req.body;
     
     console.log(`Tentando atualizar plano alimentar com ID: ${id}`);
     console.log('Dados recebidos:', JSON.stringify(meals, null, 2));
@@ -437,7 +438,16 @@ router.put('/meal-plans/:id', auth, async (req, res) => {
     
     console.log('Refeições válidas após filtragem:', validMeals.length);
     
-    // Primeiro excluir as refeições existentes
+    // Primeiro excluir os mealFoods das refeições deste plano
+    await prisma.mealFood.deleteMany({
+      where: {
+        meal: {
+          mealPlanId: id
+        }
+      }
+    });
+
+    // Agora sim, excluir as refeições
     await prisma.meal.deleteMany({
       where: {
         mealPlanId: id
@@ -450,6 +460,7 @@ router.put('/meal-plans/:id', auth, async (req, res) => {
       data: {
         name,
         date,
+        frequency: frequency || null,
         notes: notes || null,
         is_public: Boolean(isPublic),
         meals: {
@@ -494,9 +505,7 @@ router.delete('/meal-plans/:id', auth, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const userId = parseInt(req.user.id);
-    
-    console.log(`Tentando excluir plano alimentar com ID: ${id} para usuário ${userId}`);
-    
+
     // Verificar se o plano existe e pertence ao usuário
     const existingPlan = await prisma.mealPlan.findFirst({
       where: {
@@ -504,28 +513,40 @@ router.delete('/meal-plans/:id', auth, async (req, res) => {
         userId
       }
     });
-    
+
     if (!existingPlan) {
-      console.log(`Plano não encontrado ou não pertence ao usuário ${userId}`);
       return res.status(404).json({ 
         message: 'Plano alimentar não encontrado ou não pertence a este usuário' 
       });
     }
-    
-    // Excluir o plano (as meals e mealFoods serão excluídas em cascata devido às relações no schema)
+
+    // Excluir todos os mealFoods das refeições deste plano
+    await prisma.mealFood.deleteMany({
+      where: {
+        meal: {
+          mealPlanId: id
+        }
+      }
+    });
+
+    // Excluir todas as refeições deste plano
+    await prisma.meal.deleteMany({
+      where: {
+        mealPlanId: id
+      }
+    });
+
+    // Agora sim, excluir o plano alimentar
     await prisma.mealPlan.delete({
       where: { id }
     });
-    
-    console.log(`Plano alimentar ${id} excluído com sucesso`);
+
     res.json({ message: 'Plano alimentar excluído com sucesso' });
   } catch (error) {
     console.error('Erro ao excluir plano alimentar:', error);
-    console.error('Stack trace:', error.stack);
     res.status(500).json({ 
       message: 'Erro ao excluir plano alimentar',
-      error: error.toString(),
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: error.toString()
     });
   }
 });

@@ -16,8 +16,12 @@ CREATE TABLE "users" (
 CREATE TABLE "exercises" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
-    "muscle_group" TEXT,
-    "description" TEXT,
+    "muscle_group" TEXT NOT NULL,
+    "equipment" TEXT,
+    "instructions" TEXT,
+    "user_id" INTEGER,
+    "is_public" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "exercises_pkey" PRIMARY KEY ("id")
 );
@@ -31,8 +35,8 @@ CREATE TABLE "foods" (
     "protein" DOUBLE PRECISION NOT NULL,
     "carbs" DOUBLE PRECISION NOT NULL,
     "fat" DOUBLE PRECISION NOT NULL,
-    "isPublic" BOOLEAN NOT NULL DEFAULT false,
     "userId" INTEGER NOT NULL,
+    "is_public" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "foods_pkey" PRIMARY KEY ("id")
 );
@@ -50,49 +54,56 @@ CREATE TABLE "badges" (
 -- CreateTable
 CREATE TABLE "workout_plans" (
     "id" SERIAL NOT NULL,
+    "name" TEXT NOT NULL,
+    "day_of_week" INTEGER NOT NULL,
+    "notes" TEXT,
     "user_id" INTEGER NOT NULL,
-    "title" TEXT NOT NULL,
-    "start_date" DATE NOT NULL,
-    "end_date" DATE NOT NULL,
+    "is_public" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "workout_plans_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "workout_plan_exercises" (
-    "plan_id" INTEGER NOT NULL,
+    "id" SERIAL NOT NULL,
+    "workout_plan_id" INTEGER NOT NULL,
     "exercise_id" INTEGER NOT NULL,
-    "day_of_week" INTEGER NOT NULL,
     "sets" INTEGER NOT NULL,
     "reps" INTEGER NOT NULL,
-    "load_kg" DECIMAL(5,2),
+    "weight_kg" DOUBLE PRECISION NOT NULL,
+    "rest_seconds" INTEGER,
     "notes" TEXT,
+    "order_index" INTEGER NOT NULL DEFAULT 0,
 
-    CONSTRAINT "workout_plan_exercises_pkey" PRIMARY KEY ("plan_id","exercise_id","day_of_week")
+    CONSTRAINT "workout_plan_exercises_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "workout_sessions" (
     "id" SERIAL NOT NULL,
-    "user_id" INTEGER NOT NULL,
-    "date" DATE NOT NULL,
+    "date" TIMESTAMP(3) NOT NULL,
     "completed_at" TIMESTAMP(3),
     "notes" TEXT,
+    "user_id" INTEGER NOT NULL,
+    "workout_plan_id" INTEGER,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "workout_sessions_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "workout_session_exercises" (
+    "id" SERIAL NOT NULL,
     "session_id" INTEGER NOT NULL,
     "exercise_id" INTEGER NOT NULL,
     "actual_sets" INTEGER NOT NULL,
     "actual_reps" INTEGER NOT NULL,
-    "actual_load_kg" DECIMAL(5,2),
+    "actual_weight_kg" DOUBLE PRECISION NOT NULL,
     "comments" TEXT,
 
-    CONSTRAINT "workout_session_exercises_pkey" PRIMARY KEY ("session_id","exercise_id")
+    CONSTRAINT "workout_session_exercises_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -152,6 +163,8 @@ CREATE TABLE "user_feedback" (
     "id" SERIAL NOT NULL,
     "user_id" INTEGER,
     "name" TEXT,
+    "email" TEXT,
+    "rating" INTEGER,
     "sentiment" INTEGER,
     "comment" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -176,8 +189,10 @@ CREATE TABLE "meal_plans" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "date" TEXT NOT NULL,
+    "frequency" TEXT,
     "notes" TEXT,
     "userId" INTEGER NOT NULL,
+    "is_public" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "meal_plans_pkey" PRIMARY KEY ("id")
 );
@@ -195,9 +210,9 @@ CREATE TABLE "meals" (
 -- CreateTable
 CREATE TABLE "meal_foods" (
     "id" SERIAL NOT NULL,
-    "quantity" DOUBLE PRECISION NOT NULL,
     "mealId" INTEGER NOT NULL,
     "foodId" INTEGER NOT NULL,
+    "quantity" DOUBLE PRECISION NOT NULL,
 
     CONSTRAINT "meal_foods_pkey" PRIMARY KEY ("id")
 );
@@ -212,19 +227,25 @@ CREATE UNIQUE INDEX "badges_code_key" ON "badges"("code");
 CREATE UNIQUE INDEX "NutritionGoals_userId_key" ON "NutritionGoals"("userId");
 
 -- AddForeignKey
+ALTER TABLE "exercises" ADD CONSTRAINT "exercises_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "foods" ADD CONSTRAINT "foods_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "workout_plans" ADD CONSTRAINT "workout_plans_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "workout_plan_exercises" ADD CONSTRAINT "workout_plan_exercises_plan_id_fkey" FOREIGN KEY ("plan_id") REFERENCES "workout_plans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "workout_plan_exercises" ADD CONSTRAINT "workout_plan_exercises_workout_plan_id_fkey" FOREIGN KEY ("workout_plan_id") REFERENCES "workout_plans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "workout_plan_exercises" ADD CONSTRAINT "workout_plan_exercises_exercise_id_fkey" FOREIGN KEY ("exercise_id") REFERENCES "exercises"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "workout_sessions" ADD CONSTRAINT "workout_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "workout_sessions" ADD CONSTRAINT "workout_sessions_workout_plan_id_fkey" FOREIGN KEY ("workout_plan_id") REFERENCES "workout_plans"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "workout_session_exercises" ADD CONSTRAINT "workout_session_exercises_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "workout_sessions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -245,10 +266,10 @@ ALTER TABLE "food_diary_entries" ADD CONSTRAINT "food_diary_entries_food_id_fkey
 ALTER TABLE "points_log" ADD CONSTRAINT "points_log_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "user_badges" ADD CONSTRAINT "user_badges_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "user_badges" ADD CONSTRAINT "user_badges_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badges"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "user_badges" ADD CONSTRAINT "user_badges_badge_id_fkey" FOREIGN KEY ("badge_id") REFERENCES "badges"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "user_badges" ADD CONSTRAINT "user_badges_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "device_data" ADD CONSTRAINT "device_data_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -263,10 +284,10 @@ ALTER TABLE "NutritionGoals" ADD CONSTRAINT "NutritionGoals_userId_fkey" FOREIGN
 ALTER TABLE "meal_plans" ADD CONSTRAINT "meal_plans_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "meals" ADD CONSTRAINT "meals_mealPlanId_fkey" FOREIGN KEY ("mealPlanId") REFERENCES "meal_plans"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "meals" ADD CONSTRAINT "meals_mealPlanId_fkey" FOREIGN KEY ("mealPlanId") REFERENCES "meal_plans"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "meal_foods" ADD CONSTRAINT "meal_foods_mealId_fkey" FOREIGN KEY ("mealId") REFERENCES "meals"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "meal_foods" ADD CONSTRAINT "meal_foods_mealId_fkey" FOREIGN KEY ("mealId") REFERENCES "meals"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "meal_foods" ADD CONSTRAINT "meal_foods_foodId_fkey" FOREIGN KEY ("foodId") REFERENCES "foods"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

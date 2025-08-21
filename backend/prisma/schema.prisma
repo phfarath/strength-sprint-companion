@@ -227,11 +227,12 @@ model MealPlan {
   id        Int     @id @default(autoincrement())
   name      String
   date      String
+  frequency String?
   notes     String?
   userId    Int
   is_public Boolean @default(false)
   user      User    @relation(fields: [userId], references: [id])
-  meals     Meal[]
+  meals     Meal[]  @relation("MealPlanMeals")
 
   @@map("meal_plans")
 }
@@ -241,19 +242,19 @@ model Meal {
   name       String
   time       String?
   mealPlanId Int
-  mealFoods  MealFood[]
-  mealPlan   MealPlan   @relation(fields: [mealPlanId], references: [id])
+  mealPlan   MealPlan   @relation("MealPlanMeals", fields: [mealPlanId], references: [id], onDelete: Cascade)
+  mealFoods  MealFood[] @relation("MealMealFoods")
 
   @@map("meals")
 }
 
 model MealFood {
-  id       Int   @id @default(autoincrement())
-  mealId   Int
-  foodId   Int
-  quantity Float
-  meal     Meal  @relation(fields: [mealId], references: [id])
-  food     Food  @relation(fields: [foodId], references: [id])
+  id      Int   @id @default(autoincrement())
+  mealId  Int
+  meal    Meal  @relation("MealMealFoods", fields: [mealId], references: [id], onDelete: Cascade)
+  quantity Float @default(1)
+  foodId  Int
+  food    Food  @relation(fields: [foodId], references: [id])
 
   @@map("meal_foods")
 }
