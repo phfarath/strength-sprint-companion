@@ -1,7 +1,10 @@
 // src/services/api.ts
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+// Use local backend in development and production URL otherwise
+const API_URL = import.meta.env.DEV
+  ? 'http://localhost:5000/api'
+  : 'https://forgenfuel.onrender.com/api';
 const TOKEN_KEY = 'auth_token';
 
 export const getAuthToken = () => localStorage.getItem(TOKEN_KEY);
