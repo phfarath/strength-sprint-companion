@@ -19,6 +19,7 @@ const WorkoutPlanning = () => {
   const [editingWorkout, setEditingWorkout] = useState<WorkoutPlan | null>(null);
   const [activeTab, setActiveTab] = useState<string>('view');
   const [exercises, setExercises] = useState<any[]>([]);
+  const [publicPlans, setPublicPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
@@ -27,22 +28,37 @@ const WorkoutPlanning = () => {
   // Buscar exercícios ao carregar a página
   useEffect(() => {
     fetchExercises();
+    fetchPublicPlans();
   }, []);
+
+  const fetchPublicPlans = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setPublicPlans([]);
+        return;
+      }
+
+      const response = await apiServices.getPublicWorkoutPlans();
+      console.log("Treinos públicos recebidos:", response.data);
+      setPublicPlans(Array.isArray(response.data) ? response.data : []);
+    } catch (error: any) {
+      console.error('Erro ao buscar treinos públicos:', error);
+      setPublicPlans([]);
+    }
+  };
 
   const fetchExercises = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('auth_token');
       if (!token) {
-        console.log("Token não encontrado, usando exercícios mock");
-        const mockExercises = [
-          { id: "1", name: "Supino Reto", muscleGroup: "Peito", equipment: "Barra", isPublic: true },
-          { id: "2", name: "Agachamento", muscleGroup: "Pernas", equipment: "Barra", isPublic: true },
-          { id: "3", name: "Levantamento Terra", muscleGroup: "Costas", equipment: "Barra", isPublic: true },
-          { id: "4", name: "Desenvolvimento", muscleGroup: "Ombros", equipment: "Halteres", isPublic: true },
-          { id: "5", name: "Rosca Direta", muscleGroup: "Bíceps", equipment: "Barra", isPublic: true }
-        ];
-        setExercises(mockExercises);
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado para acessar os exercícios.",
+          variant: "destructive"
+        });
+        setExercises([]);
         return;
       }
 
@@ -53,18 +69,10 @@ const WorkoutPlanning = () => {
       console.error('Erro ao buscar exercícios:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível carregar exercícios. Usando dados padrão.",
+        description: "Não foi possível carregar exercícios. Tente novamente.",
         variant: "destructive"
       });
-      // Fallback para exercícios mock
-      const mockExercises = [
-        { id: "1", name: "Supino Reto", muscleGroup: "Peito", equipment: "Barra", isPublic: true },
-        { id: "2", name: "Agachamento", muscleGroup: "Pernas", equipment: "Barra", isPublic: true },
-        { id: "3", name: "Levantamento Terra", muscleGroup: "Costas", equipment: "Barra", isPublic: true },
-        { id: "4", name: "Desenvolvimento", muscleGroup: "Ombros", equipment: "Halteres", isPublic: true },
-        { id: "5", name: "Rosca Direta", muscleGroup: "Bíceps", equipment: "Barra", isPublic: true }
-      ];
-      setExercises(mockExercises);
+      setExercises([]);
     } finally {
       setLoading(false);
     }
@@ -145,6 +153,44 @@ const WorkoutPlanning = () => {
     navigate('/workout/start');
   };
 
+  const handleImportPublicPlan = async (publicPlan: any) => {
+    try {
+      // Criar um novo plano baseado no público
+      const workoutToImport: Omit<WorkoutPlan, 'id'> = {
+        name: `${publicPlan.name} (Importado)`,
+        dayOfWeek: publicPlan.dayOfWeek,
+        notes: publicPlan.notes || `Treino importado da comunidade`,
+        isPublic: false, // Por padrão, treinos importados não são públicos
+        exercises: publicPlan.exercises.map((ex: any) => ({
+          id: ex.id,
+          name: ex.name,
+          muscleGroup: ex.muscleGroup,
+          sets: ex.sets,
+          reps: ex.reps,
+          weight: ex.weight || 0,
+          restSeconds: ex.restSeconds || 0,
+          notes: ex.notes || ''
+        }))
+      };
+
+      await addWorkoutPlan(workoutToImport);
+
+      toast({
+        title: "Treino importado",
+        description: `O treino "${publicPlan.name}" foi importado com sucesso!`,
+      });
+
+      // Voltar para a aba de visualização para ver o treino importado
+      setActiveTab('view');
+    } catch (error) {
+      toast({
+        title: "Erro ao importar treino",
+        description: "Não foi possível importar o treino. Tente novamente.",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Agrupar treinos por dia da semana
   const workoutsByDay = Array.from({ length: 7 }, (_, i) => {
     return {
@@ -174,7 +220,7 @@ const WorkoutPlanning = () => {
             <TabsTrigger value="view">Visualizar Treinos</TabsTrigger>
             <TabsTrigger value="create">Criar Novo Treino</TabsTrigger>
             <TabsTrigger value="edit" disabled={!editingWorkout}>Editar Treino</TabsTrigger>
-            <TabsTrigger value="exercises">Exercícios</TabsTrigger>
+            <TabsTrigger value="public">Treinos Públicos</TabsTrigger>
           </TabsList>
 
           <AnimatePresence mode="wait">
@@ -349,7 +395,7 @@ const WorkoutPlanning = () => {
                       <p className="text-gray-600">Configure um novo treino personalizado.</p>
                     </CardHeader>
                     <CardContent>
-                      <WorkoutFormWithAI onSubmit={handleCreateWorkout} />
+                      <WorkoutFormWithAI onSubmit={handleCreateWorkout} exercises={exercises} />
                     </CardContent>
                   </Card>
                 </motion.div>
@@ -368,9 +414,10 @@ const WorkoutPlanning = () => {
                         <p className="text-gray-600">Modifique as informações do seu treino.</p>
                       </CardHeader>
                       <CardContent>
-                        <WorkoutForm 
+                        <WorkoutForm
                           initialWorkout={editingWorkout}
                           onSubmit={handleUpdateWorkout}
+                          exercises={exercises}
                         />
                         <Button 
                           variant="outline" 
@@ -392,18 +439,18 @@ const WorkoutPlanning = () => {
                 )}
               </TabsContent>
 
-              <TabsContent value="exercises" className="mt-0">
+              <TabsContent value="public" className="mt-0">
                 <Card className="bg-white">
                   <CardHeader>
-                    <CardTitle>Banco de Exercícios</CardTitle>
-                    <p className="text-gray-600">Explore exercícios disponíveis para seus treinos.</p>
+                    <CardTitle>Treinos Públicos</CardTitle>
+                    <p className="text-gray-600">Explore treinos criados por outros usuários e importe para seu planejamento.</p>
                   </CardHeader>
                   <CardContent>
                     <div className="mb-4">
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                         <Input
-                          placeholder="Buscar exercícios..."
+                          placeholder="Buscar treinos públicos..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="pl-10"
@@ -414,38 +461,73 @@ const WorkoutPlanning = () => {
                     {loading ? (
                       <div className="text-center py-8">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-fitness-primary mx-auto"></div>
-                        <p className="text-gray-500 mt-2">Carregando exercícios...</p>
+                        <p className="text-gray-500 mt-2">Carregando treinos públicos...</p>
+                      </div>
+                    ) : publicPlans.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+                        {publicPlans
+                          .filter(plan =>
+                            plan.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            plan.notes?.toLowerCase().includes(searchQuery.toLowerCase())
+                          )
+                          .map((plan) => (
+                            <motion.div
+                              key={plan.id}
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="border rounded-lg p-4 hover:shadow-md transition-all"
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <Dumbbell className="w-4 h-4 text-fitness-primary" />
+                                <h3 className="font-medium text-gray-900 truncate">{plan.name}</h3>
+                              </div>
+
+                              <p className="text-sm text-gray-600 mb-1">
+                                <span className="font-medium">Dia:</span> {daysOfWeek[plan.dayOfWeek]}
+                              </p>
+
+                              <p className="text-sm text-gray-600 mb-2">
+                                <span className="font-medium">Exercícios:</span> {plan.exercises.length}
+                              </p>
+
+                              {plan.notes && (
+                                <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                  {plan.notes}
+                                </p>
+                              )}
+
+                              {/* Lista de exercícios (primeiros 2) */}
+                              <div className="space-y-1 mb-3 text-xs text-gray-500">
+                                {plan.exercises.slice(0, 2).map((exercise, idx) => (
+                                  <div key={idx} className="truncate">
+                                    • {exercise.name} ({exercise.sets}x{exercise.reps})
+                                  </div>
+                                ))}
+                                {plan.exercises.length > 2 && (
+                                  <div className="text-center text-gray-400">
+                                    +{plan.exercises.length - 2} mais
+                                  </div>
+                                )}
+                              </div>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => handleImportPublicPlan(plan)}
+                              >
+                                <Plus size={14} className="mr-1" />
+                                Importar Treino
+                              </Button>
+                            </motion.div>
+                          ))
+                        }
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-                        {filteredExercises.map((exercise) => (
-                          <motion.div
-                            key={exercise.id}
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="border rounded-lg p-4 hover:shadow-md transition-all"
-                          >
-                            <div className="flex items-center gap-2 mb-2">
-                              <Dumbbell className="w-4 h-4 text-fitness-primary" />
-                              <h3 className="font-medium text-gray-900 truncate">{exercise.name}</h3>
-                            </div>
-                            <p className="text-sm text-gray-600 mb-1">
-                              <span className="font-medium">Músculo:</span> {exercise.muscleGroup}
-                            </p>
-                            {exercise.equipment && (
-                              <p className="text-sm text-gray-600">
-                                <span className="font-medium">Equipamento:</span> {exercise.equipment}
-                              </p>
-                            )}
-                            {exercise.isPublic && (
-                              <div className="mt-2">
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
-                                  Exercício Padrão
-                                </span>
-                              </div>
-                            )}
-                          </motion.div>
-                        ))}
+                      <div className="text-center py-12">
+                        <Dumbbell className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                        <p className="text-gray-500 mb-2">Nenhum treino público encontrado</p>
+                        <p className="text-sm text-gray-400">Seja o primeiro a compartilhar um treino público!</p>
                       </div>
                     )}
                   </CardContent>

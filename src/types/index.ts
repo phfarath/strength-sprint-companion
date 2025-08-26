@@ -5,6 +5,8 @@ export interface Exercise {
   sets: number;
   reps: number;
   weight: number;
+  restSeconds?: number;
+  notes?: string;
 }
 
 export interface WorkoutPlan {
@@ -13,6 +15,7 @@ export interface WorkoutPlan {
   exercises: Exercise[];
   dayOfWeek: number; // 0-6, domingo a sábado
   notes?: string;
+  isPublic?: boolean;
 }
 
 export interface WorkoutLog {

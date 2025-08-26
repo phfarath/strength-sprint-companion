@@ -11,10 +11,13 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
-// Interceptor para anexar token
+// Interceptor para anexar token de autenticação no formato esperado pelo backend
 api.interceptors.request.use(config => {
   const token = getAuthToken();
-  if (token) config.headers['x-auth-token'] = token;
+  if (token) {
+    // O backend espera o token no header Authorization com o prefixo Bearer
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
   return config;
 });
 
@@ -34,6 +37,7 @@ export const apiServices = {
   
   // Workouts
   getWorkoutPlans: () => api.get('/workouts/plans'),
+  getPublicWorkoutPlans: () => api.get('/workouts/plans/public'),
   createWorkoutPlan: (planData: any) => api.post('/workouts/plans', planData),
   updateWorkoutPlan: (id: string, planData: any) => api.put(`/workouts/plans/${id}`, planData),
   deleteWorkoutPlan: (id: string) => api.delete(`/workouts/plans/${id}`),
