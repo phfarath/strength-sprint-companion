@@ -47,6 +47,7 @@ model Exercise {
   workout_plan_exercises WorkoutPlanExercise[]
   session_exercises      WorkoutSessionExercise[]
 
+  @@unique([name, muscle_group, user_id])
   @@map("exercises")
 }
 

@@ -31,10 +31,20 @@ async function testDatabaseConnection() {
 testDatabaseConnection();
 
 // Middleware
-app.use(cors({
-  origin: 'http://localhost:8080', // URL do seu frontend
-  credentials: true
-}));
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
+  : [
+      'http://localhost:5173',
+      'http://localhost:8080',
+      'https://forgenfuel.vercel.app',
+    ];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 // Adicione isso no seu index.js
