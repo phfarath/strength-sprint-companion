@@ -66,9 +66,6 @@ app.use('/api/nutrition', require('./routes/nutrition'));
 app.use('/api/progress', require('./routes/progress'));
 app.use('/api/ai', require('./routes/ai'));
 
-// Verificar se a rota de nutrição está registrada
-app.use('/api/nutrition', require('./routes/nutrition'));
-
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
