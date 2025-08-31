@@ -61,8 +61,7 @@ const Index = () => {
           <NutritionProgress />
           <NotificationList />
           
-          {/* Nova seção de controles de acessibilidade */}
-          <AccessibilityControls />
+  
         </div>
       </div>
     </Layout>

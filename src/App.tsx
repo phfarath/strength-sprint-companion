@@ -17,6 +17,7 @@ import ProgressDashboard from './pages/progress/ProgressDashboard'; // Adicione 
 import MealPlanning from './pages/nutrition/MealPlanning';
 import FoodDiary from './pages/nutrition/FoodDiary';
 import ProfileSettings from './pages/user/ProfileSettings';
+import Settings from './pages/user/Settings';
 import FeedbackPage from './pages/user/FeedbackPage';
 
 // Importações de páginas de IA
@@ -52,6 +53,7 @@ function App() {
                 <Route path="/nutrition/diary" element={<ProtectedRoute><FoodDiary /></ProtectedRoute>} />
                 <Route path="/progress" element={<ProtectedRoute><ProgressDashboard /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
                 
                 {/* Rotas de IA */}

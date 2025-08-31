@@ -157,7 +157,7 @@ const Navbar = () => {
                   </DropdownMenuItem>
                   
                   <DropdownMenuItem asChild>
-                    <Link to="/profile" className="flex items-center space-x-2 cursor-pointer">
+                    <Link to="/settings" className="flex items-center space-x-2 cursor-pointer">
                       <Settings className="w-4 h-4" />
                       <span>Configurações</span>
                     </Link>
