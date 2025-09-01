@@ -30,6 +30,12 @@ model User {
   workoutSessions WorkoutSession[]
   exercises       Exercise[] // ← ADICIONAR ESTA LINHA
 
+  // Back-relations for settings & privacy models
+  settings         UserSettings?
+  consents         Consent[]
+  deletionRequests DeletionRequest[]
+  dataExportLogs   DataExportLog[]
+
   @@map("users")
 }
 
@@ -258,4 +264,59 @@ model MealFood {
   food    Food  @relation(fields: [foodId], references: [id])
 
   @@map("meal_foods")
+}
+
+// ==============================
+// Settings & Privacy (Phase 0)
+// ==============================
+
+model UserSettings {
+  id                Int      @id @default(autoincrement())
+  userId            Int      @unique
+  appearanceJson    String?  @db.Text
+  a11yJson          String?  @db.Text
+  notificationsJson String?  @db.Text
+  aiJson            String?  @db.Text
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+model Consent {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  kind      String   // analytics | marketing | ai_training | etc
+  granted   Boolean
+  timestamp DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@map("consents")
+}
+
+model DeletionRequest {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  status      String   // scheduled | completed | canceled
+  scheduledAt DateTime?
+  created_at  DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("deletion_requests")
+}
+
+model DataExportLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  status     String   // pending | ready | error
+  url        String?
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("data_export_logs")
 }

@@ -77,6 +77,10 @@ export const apiServices = {
   
   getUserFeedbacks: () => api.get('/users/feedback'),
 
+  // Settings (placeholders for future backend)
+  getSettings: () => api.get('/users/settings'),
+  updateSettings: (settings: any) => api.put('/users/settings', settings),
+
   // AI Services
   generateWorkoutPlan: (userData: any) => api.post('/ai/workout-plans', userData),
   generateMealPlan: (userData: any) => api.post('/ai/meal-plans', userData),

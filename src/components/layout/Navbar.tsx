@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Bell, Menu, X, User, Settings, Zap, Brain, LayoutDashboard, Dumbbell, Utensils, LineChart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,9 +19,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useI18n } from '@/i18n';
 
 const Navbar = () => {
   const { notifications, user } = useAppContext();
+  const { t } = useI18n();
   const location = useLocation();
   const unreadCount = notifications.filter(n => !n.read).length;
   const [isOpen, setIsOpen] = useState(false);
@@ -215,6 +217,17 @@ const Navbar = () => {
 
                       {/* Links de navegação no mobile */}
                       <div className="space-y-2">
+                        {/* Configurações */}
+                        <SheetClose asChild>
+                          <Link
+                            to="/settings"
+                            className="flex items-center space-x-3 px-4 py-3 rounded-xl font-medium text-gray-700 hover:bg-gray-100"
+                            onClick={() => setIsOpen(false)}
+                          >
+                            <Settings className="w-5 h-5" />
+                            <span>Configurações</span>
+                          </Link>
+                        </SheetClose>
                         {navLinks.map((link) => (
                           <SheetClose asChild key={link.to}>
                             <Link
@@ -254,3 +267,11 @@ const Navbar = () => {
 };
 
 export default Navbar;
+
+
+
+
+
+
+
+

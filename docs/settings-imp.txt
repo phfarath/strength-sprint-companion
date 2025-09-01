@@ -1,0 +1,66 @@
+Fase 0 — Fundamentos
+
+Estrutura: abas em Settings (Conta, Privacidade, Notificações, Aparência & Acessibilidade, Treino, Nutrição, Integrações, IA, Dados, Avançado).
+Estado: AppContext com settings e sync localStorage ↔ backend (lazy-load).
+Feature flags: ativar novas seções por flag (ex.: ff.settings.dataControls).
+Banco/Prisma: UserSettings, Consent, DeletionRequest, DataExportLog básicos.
+Navbar: link mobile “Configurações”.
+Fase 1 — Aparência & Acessibilidade (MVP)
+
+Acessibilidade: já integrar AccessibilityControls; adicionar densidade (compacta/padrão), fonte alternativa, cursor maior.
+Tema: claro/escuro/auto, cor primária; CSS vars e classes globais.
+Idioma e unidades: pt/en, kg↔lb, cm↔in, formatos de data.
+Persistência: PUT /api/users/settings e GET /api/users/settings.
+Critérios: configurações aplicam instantaneamente e persistem após reload.
+Fase 2 — Conta & Segurança
+
+Sessões: GET /api/users/sessions e revogação DELETE /api/users/sessions/:id.
+2FA TOTP: ativar/desativar, códigos de backup; endpoints POST /2fa/setup, POST /2fa/verify, DELETE /2fa.
+Vínculos de login: conectar/desconectar Google; alterar e-mail/senha com reautenticação.
+Critérios: revogar sessão funciona; 2FA exigida no próximo login.
+Fase 3 — Privacidade e Direitos (LGPD/GDPR)
+
+Consentimentos: granular (analytics, marketing, IA/treino de modelos), POST /api/users/consents.
+Exportação de dados: POST /api/users/export → gera ZIP (JSON/CSV) de treinos, refeições, metas, medições; log em DataExportLog.
+Exclusão de conta/dados: POST /api/users/deletion-requests com período de carência; botão confirmar digitando “DELETAR”.
+Retenção: preferências de auto-limpeza (ex.: apagar logs após X meses).
+Critérios: export faz download; exclusão agenda e bloqueia login ao final da carência.
+Fase 4 — Preferências de Treino & Nutrição
+
+Treino: objetivo (força/hipertrofia/cardio), equipamentos disponíveis, dias preferidos, descanso padrão, RPE vs %1RM.
+Nutrição: metas macro, alergias/restrições, culinárias preferidas, orçamento, lembretes de refeição/hidratação.
+Integração com planners: usar preferências nos algoritmos de “WorkoutPlanning” e “MealPlanning”.
+Critérios: planos gerados respeitam preferências; UI de lembretes ativa notificações locais/push.
+Fase 5 — Integrações
+
+Conexões: Google Fit/Apple Health (scopos selecionáveis), Strava/Fitbit/Oura (sincronia básica).
+Import/export: GPX/TCX para rotas/treinos; exportar treinos para Strava.
+Critérios: escopos visíveis e revogáveis; sync confirmada com última execução.
+Fase 6 — Preferências de IA
+
+Persona e tom: técnico/motivacional/neutro; verbosidade; idioma preferido das respostas.
+Privacidade IA: opt-in/out para uso de dados em melhoria de modelos; transparência de fontes.
+Ajustes de geração: “rigor x criatividade” (slider) e limiares de segurança.
+Critérios: respostas da IA refletem preferências; registro de consentimento IA.
+Fase 7 — Extras com ‘Chan’
+
+Dashboard: escolher/ocultar cards e reordenar via drag-and-drop (persistência por usuário).
+Check-in semanal: humor/sono/estresse; ajusta metas automaticamente.
+Gamificação: badges, streaks, modo foco.
+Relatórios de impacto: “o que mais ajudou nesta semana”.
+Backlog técnico por fase (resumo)
+
+Modelos Prisma: UserSettings, Consent(type, value, timestamp), DeletionRequest(status, scheduledAt), DataExportLog(status, url).
+Endpoints principais: GET/PUT /api/users/settings, GET/DELETE /api/users/sessions, POST /api/users/consents, POST /api/users/export, POST /api/users/deletion-requests.
+Segurança: validação JWT em todas as rotas; rate-limit em export/deletion; logs de auditoria.
+Testes: unit (services), integração (rotas), e2e leve para fluxo de exclusão e export.
+Estratégia de PRs
+
+1 PR por aba/seção, max 300–500 LOC, com migração Prisma isolada.
+Flags para funcionalidades ainda não concluídas.
+Scripts de migração e rollback documentados.
+Aceite e Telemetria
+
+Eventos: settings_changed, consent_updated, export_requested, deletion_requested, session_revoked.
+Métricas: adoção de temas, taxa de exportação, uso de 2FA, taxa de revogação de consentimento.
+Documentação: página “Privacidade e Dados” com política clara.

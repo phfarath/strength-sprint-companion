@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  Exercise, Food, MealPlan, Notification, User, WorkoutLog, WorkoutPlan 
+  Exercise, Food, MealPlan, Notification, User, WorkoutLog, WorkoutPlan,
+  AppSettings, FeatureFlags
 } from '../types';
 import { 
   exercises as mockExercises,
@@ -92,6 +93,11 @@ interface AppContextType {
   generateAIHealthAssessment: (data: any) => Promise<any>;
   analyzeAIHealthDocument: (data: any) => Promise<any>;
   askAIQuestion: (question: string) => Promise<any>;
+
+  // Settings (Phase 0)
+  settings: AppSettings;
+  updateSettings: (patch: Partial<AppSettings>) => void;
+  featureFlags: FeatureFlags;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -115,6 +121,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Settings state (Phase 0)
+  const defaultSettings: AppSettings = {
+    appearance: {
+      theme: 'light',
+      primaryColor: '#7c3aed',
+      density: 'comfortable',
+      language: 'pt',
+      units: { weight: 'kg', length: 'cm', energy: 'kcal' }
+    },
+    a11y: {
+      highContrast: false,
+      fontScale: 1,
+      reducedMotion: false,
+      screenReader: false,
+      largeCursor: false,
+    },
+    notifications: { push: true, email: false, quietHours: null },
+    ai: { persona: 'neutral', language: 'auto', allowTraining: false, creativity: 0.3 },
+  };
+
+  const defaultFlags: FeatureFlags = {
+    settingsDataControls: true,
+    settingsSecurity: true,
+    settingsIntegrations: false,
+  };
+
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      const raw = localStorage.getItem('app_settings_v1');
+      if (raw) return { ...defaultSettings, ...JSON.parse(raw) } as AppSettings;
+    } catch {}
+    return defaultSettings;
+  });
+  const [featureFlags] = useState<FeatureFlags>(defaultFlags);
+
+  // Persist settings changes to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('app_settings_v1', JSON.stringify(settings));
+    } catch {}
+  }, [settings]);
+
+  const updateSettings = (patch: Partial<AppSettings>) => {
+    setSettings(prev => ({
+      ...prev,
+      appearance: { ...prev.appearance, ...patch.appearance },
+      a11y: { ...prev.a11y, ...patch.a11y },
+      notifications: { ...prev.notifications, ...patch.notifications },
+      ai: { ...prev.ai, ...patch.ai },
+    }));
+  };
 
   /* eslint-disable @typescript-eslint/no-explicit-any */
   const transformMealPlan = (plan: any): MealPlan => ({
@@ -841,7 +899,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   generateAIMealPlan: apiServices.generateMealPlan,
   generateAIHealthAssessment: apiServices.generateHealthAssessment,
   analyzeAIHealthDocument: apiServices.analyzeHealthDocument,
-  askAIQuestion: apiServices.askAIQuestion,
+    askAIQuestion: apiServices.askAIQuestion,
+
+    // Settings
+    settings,
+    updateSettings,
+    featureFlags,
 };
 
 return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

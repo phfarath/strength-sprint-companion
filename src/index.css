@@ -43,6 +43,9 @@
     --sidebar-accent-foreground: 222.2 47.4% 11.2%;
     --sidebar-border: 270 20% 90%;
     --sidebar-ring: 270 80% 60%;
+
+    /* Settings prep */
+    --font-size-multiplier: 1;
   }
 
   .dark {
@@ -92,7 +95,26 @@
 
   body {
     @apply bg-fitness-background text-foreground;
+    font-size: calc(100% * var(--font-size-multiplier));
   }
+}
+
+/* Accessibility helpers */
+html.high-contrast {
+  filter: contrast(1.15) saturate(1.05);
+}
+
+html.reduced-motion *,
+html.reduced-motion *::before,
+html.reduced-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Optional: simple larger touch targets when compact vs comfortable can be tuned later */
+html[data-density='compact'] .workout-card,
+html[data-density='compact'] .meal-card {
+  padding: 0.75rem;
 }
 
 .workout-card {

@@ -106,3 +106,53 @@ export interface Notification {
   read: boolean;
   type: 'workout' | 'meal' | 'general';
 }
+
+// Settings types (Phase 0 scaffolding)
+export type ThemePreference = 'light' | 'dark' | 'system';
+export type DensityPreference = 'comfortable' | 'compact';
+
+export interface AppearanceSettings {
+  theme: ThemePreference;
+  primaryColor: string; // hex or css var
+  density: DensityPreference;
+  language: 'pt' | 'en';
+  units: {
+    weight: 'kg' | 'lb';
+    length: 'cm' | 'in';
+    energy: 'kcal' | 'kJ';
+  };
+}
+
+export interface AccessibilitySettings {
+  highContrast: boolean;
+  fontScale: number; // 0.8–1.5
+  reducedMotion: boolean;
+  screenReader: boolean;
+  largeCursor: boolean;
+}
+
+export interface NotificationSettings {
+  push: boolean;
+  email: boolean;
+  quietHours?: { start: string; end: string } | null; // HH:mm
+}
+
+export interface AISettings {
+  persona: 'technical' | 'motivational' | 'neutral';
+  language: 'auto' | 'pt' | 'en';
+  allowTraining: boolean; // consent to use data to improve models
+  creativity: number; // 0–1
+}
+
+export interface AppSettings {
+  appearance: AppearanceSettings;
+  a11y: AccessibilitySettings;
+  notifications: NotificationSettings;
+  ai: AISettings;
+}
+
+export interface FeatureFlags {
+  settingsDataControls: boolean;
+  settingsSecurity: boolean;
+  settingsIntegrations: boolean;
+}
