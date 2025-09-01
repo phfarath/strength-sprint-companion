@@ -1,23 +1,22 @@
 const jwt = require('jsonwebtoken');
 
-module.exports = function(req, res, next) {
-  // Obter token do cabeçalho
-  const token = req.header('x-auth-token');
-  
-  // Log para debug
+module.exports = function (req, res, next) {
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  let token;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.slice(7);
+  }
+
   console.log('Token recebido:', token);
-  
-  // Verificar se não há token
+
   if (!token) {
-    return res.status(401).json({ message: 'Token não fornecido, acesso negado' });
+    return res.status(401).json({ message: 'Token não fornecido' });
   }
 
   try {
-    // Verificar token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('Token decodificado:', decoded);
-    
-    // Adicionar o usuário decodificado à requisição
     req.user = decoded;
     next();
   } catch (err) {

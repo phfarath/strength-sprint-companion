@@ -374,9 +374,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addWorkoutPlan = async (plan: Omit<WorkoutPlan, 'id'>) => {
     try {
       console.log("Criando plano de treino:", plan);
-      const response = await apiServices.createWorkoutPlan(plan);
+
+      // Normalizar o campo isPublic
+      const normalizedPlan = {
+        ...plan,
+        isPublic: plan.isPublic ?? false,
+        exercises: plan.exercises.map(ex => ({
+          id: ex.id,
+          sets: ex.sets,
+          reps: ex.reps,
+          weight: ex.weight,
+          restSeconds: ex.restSeconds || 0,
+          notes: ex.notes || ''
+        }))
+      };
+
+      console.log("Plano normalizado:", normalizedPlan);
+      const response = await apiServices.createWorkoutPlan(normalizedPlan);
       const newPlan = response.data;
-      
+
       setWorkoutPlans(prev => [...prev, newPlan]);
       toast({
         title: "Plano de treino criado",
@@ -397,9 +413,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateWorkoutPlan = async (plan: WorkoutPlan) => {
     try {
       console.log("Atualizando plano de treino:", plan);
-      const response = await apiServices.updateWorkoutPlan(plan.id, plan);
+
+      // Normalizar o campo isPublic
+      const normalizedPlan = {
+        ...plan,
+        isPublic: plan.isPublic ?? false,
+        exercises: plan.exercises.map(ex => ({
+          id: ex.id,
+          sets: ex.sets,
+          reps: ex.reps,
+          weight: ex.weight,
+          restSeconds: ex.restSeconds || 0,
+          notes: ex.notes || ''
+        }))
+      };
+
+      console.log("Plano normalizado:", normalizedPlan);
+      const response = await apiServices.updateWorkoutPlan(plan.id, normalizedPlan);
       const updatedPlan = response.data;
-      
+
       setWorkoutPlans(prev => prev.map(wp => wp.id === plan.id ? updatedPlan : wp));
       toast({
         title: "Plano de treino atualizado",

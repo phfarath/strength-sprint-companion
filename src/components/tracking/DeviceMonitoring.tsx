@@ -94,7 +94,7 @@ const DeviceMonitoring = () => {
           
           <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
             <div className="flex items-center text-sm text-gray-600 mb-1">
-              <Activity className="mr-1 h-4 w-4 text-green-500" />
+              <Activity className="mr-1 h-4 w-4 text-purple-500" />
               <span>Calorias</span>
             </div>
             <div className="text-xl font-bold">{monitoringData.caloriesBurned} <span className="text-sm font-normal">kcal</span></div>

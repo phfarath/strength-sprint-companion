@@ -33,7 +33,7 @@ const TodayWorkout = () => {
             </div>
             <h3 className="text-lg font-semibold text-gray-700 mb-2">Dia de Descanso</h3>
             <p className="text-gray-500 mb-4">Nenhum treino programado para hoje</p>
-            <Button asChild variant="outline" className="hover:bg-blue-50 hover:text-blue-600 border-blue-200">
+            <Button asChild variant="outline" className="hover:bg-purple-50 hover:text-purple-600 border-purple-200">
               <Link to="/workout/planning">Ver planejamento semanal</Link>
             </Button>
           </CardContent>
@@ -51,8 +51,8 @@ const TodayWorkout = () => {
       <Card className={`
         border hover:shadow-xl transition-all duration-300
         ${isComplete 
-          ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' 
-          : 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200'
+          ? 'bg-gradient-to-br from-purple-50 to-purple-50 border-purple-200' 
+          : 'bg-gradient-to-br from-purple-50 to-purple-50 border-purple-200'
         }
       `}>
         <CardHeader className="pb-3">
@@ -61,8 +61,8 @@ const TodayWorkout = () => {
               <div className={`
                 w-10 h-10 rounded-xl flex items-center justify-center
                 ${isComplete 
-                  ? 'bg-gradient-to-br from-green-500 to-emerald-600' 
-                  : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                  ? 'bg-gradient-to-br from-purple-500 to-purple-600' 
+                  : 'bg-gradient-to-br from-purple-500 to-purple-600'
                 }
               `}>
                 <Dumbbell size={20} className="text-white" />
@@ -78,7 +78,7 @@ const TodayWorkout = () => {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="flex items-center bg-green-500 text-white px-3 py-1 rounded-full"
+                className="flex items-center bg-purple-500 text-white px-3 py-1 rounded-full"
               >
                 <CheckCircle size={16} className="mr-1" />
                 <span className="text-sm font-medium">Concluído</span>
@@ -92,7 +92,7 @@ const TodayWorkout = () => {
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="text-center">
               <div className="bg-white/60 rounded-lg p-3">
-                <Target className="w-5 h-5 mx-auto mb-1 text-blue-600" />
+                <Target className="w-5 h-5 mx-auto mb-1 text-purple-600" />
                 <p className="text-lg font-bold text-gray-900">{todayWorkout.exercises.length}</p>
                 <p className="text-xs text-gray-600">Exercícios</p>
               </div>
@@ -150,8 +150,8 @@ const TodayWorkout = () => {
               className={`
                 w-full text-white font-semibold shadow-lg
                 ${isComplete
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
-                  : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700'
+                  ? 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700'
+                  : 'bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700'
                 }
               `}
             >

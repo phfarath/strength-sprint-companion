@@ -10,6 +10,7 @@ import MealForm from './MealForm';
 import { Plus, Trash, Edit } from 'lucide-react';
 import MealTemplates from './MealTemplates';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface MealPlanFormProps {
   initialMealPlan?: MealPlan;
@@ -21,6 +22,9 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
 
   const [date, setDate] = useState(
     initialMealPlan?.date || new Date().toISOString().split('T')[0]
+  );
+  const [frequency, setFrequency] = useState<string>(
+    initialMealPlan?.frequency || 'none'
   );
   const [meals, setMeals] = useState<Meal[]>(
     initialMealPlan?.meals?.map(meal => ({
@@ -43,14 +47,14 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
             (m as any).foods && (m as any).foods.length
               ? (m as any).foods
               : (((m as any).mealFoods || []) as any[]).map(mf => ({
-                  foodId:
-                    typeof mf.foodId === 'string'
-                      ? parseInt(mf.foodId, 10)
-                      : mf.foodId ?? mf.food?.id,
-                  servings: parseFloat(
-                    (mf.servings ?? mf.quantity ?? 1).toString()
-                  )
-                }));
+                foodId:
+                  typeof mf.foodId === 'string'
+                    ? parseInt(mf.foodId, 10)
+                    : mf.foodId ?? mf.food?.id,
+                servings: parseFloat(
+                  (mf.servings ?? mf.quantity ?? 1).toString()
+                )
+              }));
           return {
             ...m,
             foods: foods.filter((f: any) => !isNaN(Number(f.foodId)))
@@ -72,14 +76,14 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
       (meal.foods || []).reduce(
         (acc: any, f: any) => {
           const foodData = foodsMap.get(Number(f.foodId));
-            if (foodData) {
-              const servings =
-                parseFloat(f.servings?.toString() || '1') || 1;
-              acc.calories += foodData.calories * servings;
-              acc.protein += foodData.protein * servings;
-              acc.carbs += foodData.carbs * servings;
-              acc.fat += foodData.fat * servings;
-            }
+          if (foodData) {
+            const servings =
+              parseFloat(f.servings?.toString() || '1') || 1;
+            acc.calories += foodData.calories * servings;
+            acc.protein += foodData.protein * servings;
+            acc.carbs += foodData.carbs * servings;
+            acc.fat += foodData.fat * servings;
+          }
           return acc;
         },
         { calories: 0, protein: 0, carbs: 0, fat: 0 }
@@ -138,6 +142,7 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
       ...(initialMealPlan?.id && { id: initialMealPlan.id }),
       name,
       date,
+      frequency,
       notes,
       isPublic,
       meals: normalizedMeals
@@ -194,19 +199,19 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
           <CardHeader>
             <CardTitle>Editar Refeição</CardTitle>
           </CardHeader>
-            <CardContent>
-              <MealForm
-                initialMeal={meals[editingMealIndex]}
-                onSubmit={meal => handleUpdateMeal(meal, editingMealIndex)}
-              />
-              <Button
-                variant="outline"
-                className="mt-4 w-full"
-                onClick={() => setEditingMealIndex(null)}
-              >
-                Cancelar
-              </Button>
-            </CardContent>
+          <CardContent>
+            <MealForm
+              initialMeal={meals[editingMealIndex]}
+              onSubmit={meal => handleUpdateMeal(meal, editingMealIndex)}
+            />
+            <Button
+              variant="outline"
+              className="mt-4 w-full"
+              onClick={() => setEditingMealIndex(null)}
+            >
+              Cancelar
+            </Button>
+          </CardContent>
         </Card>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -232,13 +237,30 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
             />
           </div>
 
-          <div className="flex items-center space-x-2">
+
+          <div className="flex items-center space-x-2 mb-4">
             <Switch
               id="isPublic"
               checked={isPublic}
               onCheckedChange={setIsPublic}
             />
             <Label htmlFor="isPublic">Plano público</Label>
+          </div>
+
+          <div className="mb-4">
+            <Label htmlFor="frequency">Frequência</Label>
+            <Select value={frequency} onValueChange={setFrequency}>
+              <SelectTrigger id="frequency" className="w-full mt-1">
+                <SelectValue placeholder="Selecione a frequência" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem repetição</SelectItem>
+                <SelectItem value="daily">Diário</SelectItem>
+                <SelectItem value="weekly">Semanal</SelectItem>
+                <SelectItem value="alternate">Dia sim, dia não</SelectItem>
+                <SelectItem value="monthly">Mensal</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div>
@@ -261,70 +283,69 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({ initialMealPlan, onSubmit }
                   return (
                     <Card key={meal.id || index} className="meal-card">
                       <CardContent className="p-4">
+                        {/* Meal summary and actions go here */}
                         <div className="flex justify-between items-center mb-3">
                           <div>
-                            <h3 className="font-medium">{mealData.name}</h3>
-                            <p className="text-sm text-gray-500">
-                              {mealData.time}
-                            </p>
+                            <h4 className="font-semibold">{meal.name}</h4>
+                            <div className="text-xs text-gray-500">{meal.time}</div>
                           </div>
-                          <div className="flex space-x-1">
+                          <div className="flex gap-2">
                             <Button
                               type="button"
+                              size="icon"
                               variant="ghost"
-                              size="sm"
                               onClick={() => setEditingMealIndex(index)}
-                              className="text-blue-500 hover:text-blue-700"
+                              aria-label="Editar"
                             >
                               <Edit size={16} />
                             </Button>
                             <Button
                               type="button"
+                              size="icon"
                               variant="ghost"
-                              size="sm"
                               onClick={() => handleRemoveMeal(index)}
-                              className="text-red-500 hover:text-red-700"
+                              aria-label="Remover"
                             >
                               <Trash size={16} />
                             </Button>
                           </div>
                         </div>
-
-                        {mealData.foods && mealData.foods.length > 0 && (
-                          <>
-                            <div className="text-xs text-gray-500 mb-1">
-                              {mealData.foods.length}{' '}
-                              {mealData.foods.length === 1
-                                ? 'alimento'
-                                : 'alimentos'}
-                            </div>
-
-                            <div className="text-sm grid grid-cols-4 gap-2">
-                              <div>
-                                <p className="font-medium">
-                                  {Math.round(mealData.nutrition.calories)} kcal
-                                </p>
-                              </div>
-                              <div>
-                                <p>
-                                  P:{' '}
-                                  {Math.round(mealData.nutrition.protein)}g
-                                </p>
-                              </div>
-                              <div>
-                                <p>
-                                  C:{' '}
-                                  {Math.round(mealData.nutrition.carbs)}g
-                                </p>
-                              </div>
-                              <div>
-                                <p>
-                                  G: {Math.round(mealData.nutrition.fat)}g
-                                </p>
-                              </div>
-                            </div>
-                          </>
-                        )}
+                        <div className="mb-2">
+                          <div className="text-xs text-gray-500">Alimentos:</div>
+                          <ul className="list-disc list-inside text-sm">
+                            {meal.foods && meal.foods.length > 0 ? (
+                              meal.foods.map((f, i) => {
+                                const food = foodsMap.get(Number(f.foodId));
+                                return (
+                                  <li key={i}>
+                                    {food ? food.name : 'Alimento desconhecido'}{' '}
+                                    ({f.servings}x)
+                                  </li>
+                                );
+                              })
+                            ) : (
+                              <li className="text-gray-400">Nenhum alimento</li>
+                            )}
+                          </ul>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <span className="text-gray-500">Calorias:</span>{' '}
+                            <span className="font-medium">{Math.round(mealData.nutrition.calories)} kcal</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Proteínas:</span>{' '}
+                            <span className="font-medium">{Math.round(mealData.nutrition.protein)} g</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Carboidratos:</span>{' '}
+                            <span className="font-medium">{Math.round(mealData.nutrition.carbs)} g</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-500">Gorduras:</span>{' '}
+                            <span className="font-medium">{Math.round(mealData.nutrition.fat)} g</span>
+                          </div>
+                        </div>
                       </CardContent>
                     </Card>
                   );

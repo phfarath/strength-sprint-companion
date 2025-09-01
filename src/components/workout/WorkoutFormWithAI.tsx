@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Trash, Sparkles } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Trash, Sparkles, Dumbbell } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { motion } from 'framer-motion';
+import { apiServices } from '@/services/api';
 
 interface WorkoutFormWithAIProps {
   onSubmit: (workout: Omit<WorkoutPlan, 'id'> | WorkoutPlan) => void;
@@ -16,28 +18,33 @@ interface WorkoutFormWithAIProps {
   exercises?: any[];
 }
 
-const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({ 
-  onSubmit, 
+const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
+  onSubmit,
   initialWorkout,
   exercises = []
 }) => {
   const { generateAIWorkoutPlan } = useAppContext();
   const { toast } = useToast();
-  
-  // Usar exercises da prop ou fallback para mock
-  const availableExercises = exercises.length > 0 ? exercises : [
-    { id: "1", name: "Supino Reto", muscleGroup: "Peito" },
-    { id: "2", name: "Agachamento", muscleGroup: "Pernas" },
-    { id: "3", name: "Levantamento Terra", muscleGroup: "Costas" },
-  ];
+
+  // Usar exercises da prop ou array vazio
+  const [availableExercises, setAvailableExercises] = useState(exercises);
 
   const [name, setName] = useState(initialWorkout?.name || '');
   const [dayOfWeek, setDayOfWeek] = useState<number>(initialWorkout?.dayOfWeek || 1);
   const [notes, setNotes] = useState(initialWorkout?.notes || '');
+  const [isPublic, setIsPublic] = useState(initialWorkout?.isPublic || false);
   const [selectedExercises, setSelectedExercises] = useState<Exercise[]>(
     initialWorkout?.exercises || []
   );
   const [isLoading, setIsLoading] = useState(false);
+
+  // Estados para criar novo exercício
+  const [showCreateExercise, setShowCreateExercise] = useState(false);
+  const [newExerciseName, setNewExerciseName] = useState('');
+  const [newExerciseMuscleGroup, setNewExerciseMuscleGroup] = useState('');
+  const [newExerciseEquipment, setNewExerciseEquipment] = useState('');
+  const [newExerciseInstructions, setNewExerciseInstructions] = useState('');
+  const [creatingExercise, setCreatingExercise] = useState(false);
 
   const handleAddExercise = (exerciseId: string) => {
     const exercise = availableExercises.find(ex => ex.id === exerciseId);
@@ -58,6 +65,62 @@ const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
     );
   };
 
+  // Função para criar novo exercício
+  const handleCreateExercise = async () => {
+    if (!newExerciseName.trim() || !newExerciseMuscleGroup.trim()) {
+      toast({
+        title: "Erro",
+        description: "Nome do exercício e grupo muscular são obrigatórios.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setCreatingExercise(true);
+    try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        toast({
+          title: "Erro",
+          description: "Você precisa estar logado para criar exercícios.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const response = await apiServices.createExercise({
+        name: newExerciseName,
+        muscleGroup: newExerciseMuscleGroup,
+        equipment: newExerciseEquipment || null,
+        instructions: newExerciseInstructions || null
+      });
+
+      // Adicionar o novo exercício à lista disponível
+      setAvailableExercises(prev => [...prev, response.data]);
+
+      // Limpar formulário
+      setNewExerciseName('');
+      setNewExerciseMuscleGroup('');
+      setNewExerciseEquipment('');
+      setNewExerciseInstructions('');
+      setShowCreateExercise(false);
+
+      toast({
+        title: "Sucesso",
+        description: "Exercício criado com sucesso!",
+      });
+    } catch (error) {
+      console.error('Erro ao criar exercício:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar o exercício. Tente novamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setCreatingExercise(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const workout = {
@@ -65,7 +128,8 @@ const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
       name,
       dayOfWeek,
       exercises: selectedExercises,
-      notes
+      notes,
+      isPublic
     };
     onSubmit(workout);
   };
@@ -151,12 +215,24 @@ const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
         />
       </div>
 
+      {/* Switch para tornar o treino público */}
+      <div className="flex items-center space-x-2">
+        <Switch
+          id="is-public"
+          checked={isPublic}
+          onCheckedChange={setIsPublic}
+        />
+        <Label htmlFor="is-public" className="text-sm">
+          Tornar este treino público (outros usuários poderão visualizá-lo)
+        </Label>
+      </div>
+
       <div className="flex justify-between items-center">
         <Label>Exercícios do Treino</Label>
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-          <Button 
-            type="button" 
-            variant="outline" 
+          <Button
+            type="button"
+            variant="outline"
             size="sm"
             onClick={handleGenerateWithAI}
             disabled={isLoading}
@@ -173,18 +249,106 @@ const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
       </div>
 
       <div className="space-y-4">
-        <Select onValueChange={(value) => handleAddExercise(value)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Adicionar exercício" />
-          </SelectTrigger>
-          <SelectContent>
-            {availableExercises.map((exercise) => (
-              <SelectItem key={exercise.id} value={exercise.id}>
-                {exercise.name} - {exercise.muscleGroup}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Select onValueChange={(value) => handleAddExercise(value)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Adicionar exercício existente" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableExercises.map((exercise) => (
+                  <SelectItem key={exercise.id} value={exercise.id}>
+                    {exercise.name} - {exercise.muscleGroup}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowCreateExercise(!showCreateExercise)}
+            className="flex items-center gap-2"
+          >
+            <Dumbbell size={16} />
+            Criar Novo
+          </Button>
+        </div>
+
+        {/* Formulário para criar novo exercício */}
+        {showCreateExercise && (
+          <Card className="border-dashed">
+            <CardContent className="p-4">
+              <h4 className="font-medium mb-3">Criar Novo Exercício</h4>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="exercise-name" className="text-sm">Nome do Exercício</Label>
+                    <Input
+                      id="exercise-name"
+                      value={newExerciseName}
+                      onChange={(e) => setNewExerciseName(e.target.value)}
+                      placeholder="Ex: Supino Inclinado"
+                      className="h-9"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="exercise-muscle" className="text-sm">Grupo Muscular</Label>
+                    <Input
+                      id="exercise-muscle"
+                      value={newExerciseMuscleGroup}
+                      onChange={(e) => setNewExerciseMuscleGroup(e.target.value)}
+                      placeholder="Ex: Peito"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="exercise-equipment" className="text-sm">Equipamento (opcional)</Label>
+                    <Input
+                      id="exercise-equipment"
+                      value={newExerciseEquipment}
+                      onChange={(e) => setNewExerciseEquipment(e.target.value)}
+                      placeholder="Ex: Barra, Halteres"
+                      className="h-9"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="exercise-instructions" className="text-sm">Instruções (opcional)</Label>
+                    <Input
+                      id="exercise-instructions"
+                      value={newExerciseInstructions}
+                      onChange={(e) => setNewExerciseInstructions(e.target.value)}
+                      placeholder="Como executar o exercício"
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    onClick={handleCreateExercise}
+                    disabled={creatingExercise}
+                    className="bg-fitness-primary hover:bg-fitness-primary/90"
+                  >
+                    {creatingExercise ? 'Criando...' : 'Criar Exercício'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowCreateExercise(false)}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         
         {selectedExercises.length > 0 ? (
           <div className="space-y-3">

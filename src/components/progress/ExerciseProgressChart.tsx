@@ -87,16 +87,16 @@ const ExerciseProgressChart = () => {
         </div>
         
         <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div className="text-center p-2 bg-blue-50 rounded">
+          <div className="text-center p-2 bg-purple-50 rounded">
             <p className="text-gray-600">Progresso Total</p>
-            <p className="font-bold text-blue-600">
+            <p className="font-bold text-purple-600">
               +{progressData.length > 0 ? 
                 (progressData[progressData.length - 1].weight - progressData[0].weight) : 0}kg
             </p>
           </div>
-          <div className="text-center p-2 bg-green-50 rounded">
+          <div className="text-center p-2 bg-purple-50 rounded">
             <p className="text-gray-600">Sessões</p>
-            <p className="font-bold text-green-600">{progressData.length}</p>
+            <p className="font-bold text-purple-600">{progressData.length}</p>
           </div>
         </div>
       </CardContent>

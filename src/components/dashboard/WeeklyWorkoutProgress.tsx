@@ -74,7 +74,7 @@ const WeeklyWorkoutProgress = () => {
         </p>
         
         {weeklyStats.percentComplete >= 100 && (
-          <div className="mt-3 bg-green-50 p-3 rounded-md border border-green-100 text-green-800 text-sm">
+          <div className="mt-3 bg-purple-50 p-3 rounded-md border border-purple-100 text-purple-800 text-sm">
             Você alcançou 100% da sua meta semanal! Continue mantendo o ritmo!
           </div>
         )}

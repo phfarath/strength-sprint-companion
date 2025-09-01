@@ -1,1 +1,0 @@
-ALTER TABLE "meal_plans" ADD COLUMN "isPublic" BOOLEAN NOT NULL DEFAULT false;

@@ -30,7 +30,7 @@ const TodayMeals = () => {
             </div>
             <h3 className="text-lg font-semibold text-gray-700 mb-2">Sem Plano Alimentar</h3>
             <p className="text-gray-500 mb-4">Nenhuma refeição planejada para hoje</p>
-            <Button asChild variant="outline" className="hover:bg-green-50 hover:text-green-600 border-green-200">
+            <Button asChild variant="outline" className="hover:bg-purple-50 hover:text-purple-600 border-purple-200">
               <Link to="/nutrition/planning">Planejar refeições</Link>
             </Button>
           </CardContent>
@@ -64,10 +64,10 @@ const TodayMeals = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 hover:shadow-xl transition-all duration-300">
+      <Card className="bg-gradient-to-br from-purple-50 to-purple-50 border border-purple-200 hover:shadow-xl transition-all duration-300">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
               <Utensils size={20} className="text-white" />
             </div>
             <div>
@@ -86,7 +86,7 @@ const TodayMeals = () => {
               <p className="text-xs text-gray-600">kcal</p>
             </div>
             <div className="text-center bg-white/60 rounded-lg p-3">
-              <Apple className="w-5 h-5 mx-auto mb-1 text-blue-600" />
+              <Apple className="w-5 h-5 mx-auto mb-1 text-purple-600" />
               <p className="text-lg font-bold text-gray-900">{Math.round(totalNutrition.protein)}</p>
               <p className="text-xs text-gray-600">Prot</p>
             </div>
@@ -124,7 +124,7 @@ const TodayMeals = () => {
                         <span className="text-sm text-gray-500">({meal.time})</span>
                       )}
                     </div>
-                    <span className="text-sm font-semibold text-green-600">
+                    <span className="text-sm font-semibold text-purple-600">
                       {Math.round(nutrition.calories)} kcal
                     </span>
                   </div>
@@ -151,7 +151,7 @@ const TodayMeals = () => {
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button 
               asChild 
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold shadow-lg"
+              className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold shadow-lg"
             >
               <Link to="/nutrition/diary">Ver diário completo</Link>
             </Button>

@@ -41,7 +41,7 @@ const WeeklyCalendar = () => {
     >
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
             <Calendar className="text-white" size={20} />
           </div>
           <div>
@@ -61,7 +61,7 @@ const WeeklyCalendar = () => {
             className={`
               relative p-4 rounded-xl text-center cursor-pointer transition-all duration-200
               ${day.isToday 
-                ? 'bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg scale-105' 
+                ? 'bg-gradient-to-br from-purple-500 to-purple-600 text-white shadow-lg scale-105' 
                 : 'bg-gray-50 hover:bg-gray-100 hover:scale-105'
               }
             `}
@@ -80,7 +80,7 @@ const WeeklyCalendar = () => {
                   transition={{ delay: 0.3 + index * 0.1 }}
                   className={`
                     p-1 rounded-full 
-                    ${day.isToday ? 'bg-white/30' : 'bg-blue-500'}
+                    ${day.isToday ? 'bg-white/30' : 'bg-purple-500'}
                   `}
                 >
                   <Dumbbell size={12} className={day.isToday ? 'text-white' : 'text-white'} />
@@ -93,7 +93,7 @@ const WeeklyCalendar = () => {
                   transition={{ delay: 0.4 + index * 0.1 }}
                   className={`
                     p-1 rounded-full 
-                    ${day.isToday ? 'bg-white/30' : 'bg-green-500'}
+                    ${day.isToday ? 'bg-white/30' : 'bg-purple-500'}
                   `}
                 >
                   <Utensils size={12} className={day.isToday ? 'text-white' : 'text-white'} />
@@ -103,7 +103,7 @@ const WeeklyCalendar = () => {
 
             {/* Glow effect para hoje */}
             {day.isToday && (
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl opacity-20 blur-xl -z-10"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl opacity-20 blur-xl -z-10"></div>
             )}
           </motion.div>
         ))}
@@ -116,13 +116,13 @@ const WeeklyCalendar = () => {
         transition={{ delay: 0.8 }}
         className="flex justify-center mt-6 space-x-6"
       >
-        <div className="flex items-center bg-blue-50 px-3 py-2 rounded-full">
-          <Dumbbell size={14} className="text-blue-600 mr-2" />
-          <span className="text-sm font-medium text-blue-700">Treino</span>
+        <div className="flex items-center bg-purple-50 px-3 py-2 rounded-full">
+          <Dumbbell size={14} className="text-purple-600 mr-2" />
+          <span className="text-sm font-medium text-purple-700">Treino</span>
         </div>
-        <div className="flex items-center bg-green-50 px-3 py-2 rounded-full">
-          <Utensils size={14} className="text-green-600 mr-2" />
-          <span className="text-sm font-medium text-green-700">Refeição</span>
+        <div className="flex items-center bg-purple-50 px-3 py-2 rounded-full">
+          <Utensils size={14} className="text-purple-600 mr-2" />
+          <span className="text-sm font-medium text-purple-700">Refeição</span>
         </div>
       </motion.div>
     </motion.div>

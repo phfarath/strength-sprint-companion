@@ -115,7 +115,7 @@ const NotificationCenter = () => {
                         <div
                           key={notification.id}
                           className={`p-4 border-b last:border-b-0 ${
-                            notification.read ? 'bg-white' : 'bg-blue-50'
+                            notification.read ? 'bg-white' : 'bg-purple-50'
                           }`}
                         >
                           <div className="flex items-start">
@@ -172,7 +172,7 @@ const NotificationCenter = () => {
                   <div
                     key={notification.id}
                     className={`p-4 border-b last:border-b-0 ${
-                      notification.read ? 'bg-white' : 'bg-blue-50'
+                      notification.read ? 'bg-white' : 'bg-purple-50'
                     }`}
                   >
                     <div className="flex items-start">
@@ -222,7 +222,7 @@ const NotificationCenter = () => {
                   <div
                     key={notification.id}
                     className={`p-4 border-b last:border-b-0 ${
-                      notification.read ? 'bg-white' : 'bg-blue-50'
+                      notification.read ? 'bg-white' : 'bg-purple-50'
                     }`}
                   >
                     <div className="flex items-start">
@@ -272,12 +272,12 @@ const NotificationCenter = () => {
                   <div
                     key={notification.id}
                     className={`p-4 border-b last:border-b-0 ${
-                      notification.read ? 'bg-white' : 'bg-blue-50'
+                      notification.read ? 'bg-white' : 'bg-purple-50'
                     }`}
                   >
                     <div className="flex items-start">
                       <div className="mr-3 mt-0.5">
-                        <span className="text-blue-500">📢</span>
+                        <span className="text-purple-500">📢</span>
                       </div>
                       <div className="flex-1">
                         <p>{notification.message}</p>

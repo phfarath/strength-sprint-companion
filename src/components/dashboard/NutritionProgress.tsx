@@ -49,8 +49,8 @@ const NutritionProgress = () => {
       current: todayNutrition.calories,
       goal: goals.calories,
       unit: 'kcal',
-      color: 'from-blue-500 to-blue-600',
-      bgColor: 'from-blue-50 to-blue-100',
+      color: 'from-purple-500 to-purple-600',
+      bgColor: 'from-purple-50 to-purple-100',
       icon: '🔥'
     },
     {
@@ -58,8 +58,8 @@ const NutritionProgress = () => {
       current: todayNutrition.protein,
       goal: goals.protein,
       unit: 'g',
-      color: 'from-green-500 to-green-600',
-      bgColor: 'from-green-50 to-green-100',
+      color: 'from-purple-500 to-purple-600',
+      bgColor: 'from-purple-50 to-purple-100',
       icon: '💪'
     },
     {
@@ -134,7 +134,7 @@ const NutritionProgress = () => {
                         animate={{ scale: 1 }}
                         transition={{ delay: 0.5 + index * 0.1 }}
                       >
-                        <TrendingUp size={16} className="text-green-600" />
+                        <TrendingUp size={16} className="text-purple-600" />
                       </motion.div>
                     )}
                   </div>
@@ -145,7 +145,7 @@ const NutritionProgress = () => {
                         {Math.round(item.current)}/{item.goal} {item.unit}
                       </span>
                       <span className={`font-bold ${
-                        isOnTrack ? 'text-green-600' : percentage > 120 ? 'text-red-600' : 'text-yellow-600'
+                        isOnTrack ? 'text-purple-600' : percentage > 120 ? 'text-red-600' : 'text-yellow-600'
                       }`}>
                         {percentage}%
                       </span>
@@ -173,7 +173,7 @@ const NutritionProgress = () => {
                     </span>
                     <span className={`px-2 py-1 rounded-full font-medium ${
                       isOnTrack 
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-purple-100 text-purple-700'
                         : percentage > 120 
                         ? 'bg-red-100 text-red-700'
                         : 'bg-yellow-100 text-yellow-700'

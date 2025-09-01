@@ -64,13 +64,13 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				fitness: {
-					primary: '#38bdf8',
-					secondary: '#22c55e',
-					accent: '#3b82f6',
-					background: '#f8fafc'
-				}
-			},
+                                fitness: {
+                                        primary: '#a855f7',
+                                        secondary: '#9333ea',
+                                        accent: '#c084fc',
+                                        background: '#f5f3ff'
+                                }
+                        },
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
