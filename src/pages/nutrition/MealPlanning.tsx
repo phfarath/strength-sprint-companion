@@ -4,6 +4,7 @@ import { useAppContext } from '@/context/AppContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { apiServices } from '@/services/api';
 import { format } from 'date-fns';
@@ -11,7 +12,7 @@ import MealPlanForm from '@/components/nutrition/MealPlanForm';
 import MealPlanFormWithAI from '@/components/nutrition/MealPlanFormWithAI';
 import FoodModal from '@/components/nutrition/FoodModal';
 import { MealPlan } from '@/types';
-import { Edit, Trash, Plus, Calendar, Search } from 'lucide-react';
+import { Edit, Trash, Plus, Calendar, Search, UtensilsCrossed, Apple } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 
@@ -267,13 +268,83 @@ const MealPlanning: React.FC = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="view">Visualizar Planos</TabsTrigger>
-            <TabsTrigger value="create">Criar Novo Plano</TabsTrigger>
-            <TabsTrigger value="edit" disabled={!editingMealPlan}>Editar Plano</TabsTrigger>
-            <TabsTrigger value="foods">Meus Alimentos</TabsTrigger>
-            <TabsTrigger value="public">Planos Públicos</TabsTrigger>
-          </TabsList>
+          {/* Versão mobile - dropdown */}
+          <div className="md:hidden mb-6">
+            <Select value={activeTab} onValueChange={setActiveTab}>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {activeTab === 'view' && 'Visualizar Planos'}
+                  {activeTab === 'create' && 'Criar Novo Plano'}
+                  {activeTab === 'edit' && 'Editar Plano'}
+                  {activeTab === 'foods' && 'Meus Alimentos'}
+                  {activeTab === 'public' && 'Planos Públicos'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="view">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={16} />
+                    Visualizar Planos
+                  </div>
+                </SelectItem>
+                <SelectItem value="create">
+                  <div className="flex items-center gap-2">
+                    <Plus size={16} />
+                    Criar Novo Plano
+                  </div>
+                </SelectItem>
+                <SelectItem value="edit" disabled={!editingMealPlan}>
+                  <div className="flex items-center gap-2">
+                    <Edit size={16} />
+                    Editar Plano
+                  </div>
+                </SelectItem>
+                <SelectItem value="foods">
+                  <div className="flex items-center gap-2">
+                    <Apple size={16} />
+                    Meus Alimentos
+                  </div>
+                </SelectItem>
+                <SelectItem value="public">
+                  <div className="flex items-center gap-2">
+                    <Search size={16} />
+                    Planos Públicos
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Versão desktop - tabs melhoradas */}
+          <div className="hidden md:block mb-6">
+            <TabsList className="grid w-full grid-cols-5 h-12">
+              <TabsTrigger value="view" className="flex items-center gap-2 text-sm">
+                <Calendar size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Visualizar</span>
+                <span className="lg:hidden">Ver</span>
+              </TabsTrigger>
+              <TabsTrigger value="create" className="flex items-center gap-2 text-sm">
+                <Plus size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Criar</span>
+                <span className="lg:hidden">Novo</span>
+              </TabsTrigger>
+              <TabsTrigger value="edit" disabled={!editingMealPlan} className="flex items-center gap-2 text-sm">
+                <Edit size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Editar</span>
+                <span className="lg:hidden">Edit</span>
+              </TabsTrigger>
+              <TabsTrigger value="foods" className="flex items-center gap-2 text-sm">
+                <Apple size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Alimentos</span>
+                <span className="lg:hidden">Food</span>
+              </TabsTrigger>
+              <TabsTrigger value="public" className="flex items-center gap-2 text-sm">
+                <Search size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Públicos</span>
+                <span className="lg:hidden">Pub</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <AnimatePresence mode="wait">
             <motion.div

@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Activity, Dumbbell, Utensils, Trophy, BarChart2, Heart } from 'lucide-react';
 import Logo from '@/components/common/Logo';
+import DigitalSerenity from '@/components/ui/digital-serenity';
+import { motion } from 'framer-motion';
 
 const LandingPage = () => {
   return (
@@ -25,10 +27,13 @@ const LandingPage = () => {
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-fitness-primary/10 to-fitness-secondary/10 py-20">
         <div className="container mx-auto px-4 flex flex-col lg:flex-row items-center gap-12">
-          <div className="lg:w-1/2 space-y-6">
-            <h1 className="text-4xl md:text-5xl font-bold">
-              Seu Companheiro para Fitness e Nutrição
-            </h1>
+          <motion.div 
+            className="lg:w-1/2 space-y-6"
+            initial={{ opacity: 0, x: -50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <DigitalSerenity />
             <p className="text-xl text-gray-700">
               Monitore seus treinos, planeje suas refeições e alcance seus objetivos de forma eficiente 
               com a plataforma completa ForgeNFuel.
@@ -41,58 +46,57 @@ const LandingPage = () => {
                 <a href="#features">Conheça os Recursos</a>
               </Button>
             </div>
-          </div>
-          <div className="lg:w-1/2">
+          </motion.div>
+          <motion.div 
+            className="lg:w-1/2"
+            initial={{ opacity: 0, x: 50 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
             <img 
               src="/dashboard-preview.png" 
               alt="Dashboard do ForgeNFuel" 
               className="rounded-lg shadow-2xl"
             />
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Features Section */}
       <section id="features" className="py-20 bg-white">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
             <h2 className="text-3xl font-bold mb-4">Recursos Principais</h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Tudo o que você precisa para gerenciar sua saúde e condicionamento físico em um só lugar.
             </p>
-          </div>
+          </motion.div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <FeatureCard 
-              icon={<Dumbbell />} 
-              title="Planejamento de Treinos" 
-              description="Crie e gerencie seus planos de treinamento personalizados, com acompanhamento detalhado de cada exercício."
-            />
-            <FeatureCard 
-              icon={<Utensils />} 
-              title="Planejamento Nutricional" 
-              description="Organize suas refeições e monitore seu consumo de nutrientes para atingir suas metas de forma saudável."
-            />
-            <FeatureCard 
-              icon={<BarChart2 />} 
-              title="Acompanhamento de Progresso" 
-              description="Visualize seu progresso ao longo do tempo com gráficos intuitivos e métricas detalhadas."
-            />
-            <FeatureCard 
-              icon={<Trophy />} 
-              title="Gamificação" 
-              description="Ganhe pontos, conquiste medalhas e mantenha-se motivado com nosso sistema de recompensas."
-            />
-            <FeatureCard 
-              icon={<Heart />} 
-              title="Integração com Dispositivos" 
-              description="Sincronize com seus dispositivos de monitoramento para um acompanhamento completo da sua saúde."
-            />
-            <FeatureCard 
-              icon={<Activity />} 
-              title="Relatórios Personalizados" 
-              description="Receba insights sobre seu desempenho e recomendações personalizadas para melhorar seus resultados."
-            />
+            {[
+              { icon: <Dumbbell />, title: "Planejamento de Treinos", description: "Crie e gerencie seus planos de treinamento personalizados, com acompanhamento detalhado de cada exercício." },
+              { icon: <Utensils />, title: "Planejamento Nutricional", description: "Organize suas refeições e monitore seu consumo de nutrientes para atingir suas metas de forma saudável." },
+              { icon: <BarChart2 />, title: "Acompanhamento de Progresso", description: "Visualize seu progresso ao longo do tempo com gráficos intuitivos e métricas detalhadas." },
+              { icon: <Trophy />, title: "Gamificação", description: "Ganhe pontos, conquiste medalhas e mantenha-se motivado com nosso sistema de recompensas." },
+              { icon: <Heart />, title: "Integração com Dispositivos", description: "Sincronize com seus dispositivos de monitoramento para um acompanhamento completo da sua saúde." },
+              { icon: <Activity />, title: "Relatórios Personalizados", description: "Receba insights sobre seu desempenho e recomendações personalizadas para melhorar seus resultados." }
+            ].map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                viewport={{ once: true }}
+              >
+                <FeatureCard icon={feature.icon} title={feature.title} description={feature.description} />
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
@@ -100,33 +104,45 @@ const LandingPage = () => {
       {/* Testimonials Section */}
       <section className="py-20 bg-gray-50">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
+          <motion.div 
+            className="text-center mb-16"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+          >
             <h2 className="text-3xl font-bold mb-4">O Que Nossos Usuários Dizem</h2>
-          </div>
+          </motion.div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <TestimonialCard 
-              name="Carlos Silva"
-              role="Usuário há 6 meses"
-              quote="O ForgeNFuel mudou completamente minha abordagem de treino. Consigo planejar e acompanhar tudo de forma muito mais eficiente."
-            />
-            <TestimonialCard 
-              name="Marina Santos"
-              role="Personal Trainer"
-              quote="Recomendo para todos os meus alunos. A interface é intuitiva e os recursos de planejamento são excelentes para acompanhar a evolução."
-            />
-            <TestimonialCard 
-              name="Rafael Oliveira"
-              role="Usuário há 1 ano"
-              quote="O que mais gosto é o planejamento nutricional. Consegui finalmente manter uma dieta consistente graças ao aplicativo."
-            />
+            {[
+              { name: "Carlos Silva", role: "Usuário há 6 meses", quote: "O ForgeNFuel mudou completamente minha abordagem de treino. Consigo planejar e acompanhar tudo de forma muito mais eficiente." },
+              { name: "Marina Santos", role: "Personal Trainer", quote: "Recomendo para todos os meus alunos. A interface é intuitiva e os recursos de planejamento são excelentes para acompanhar a evolução." },
+              { name: "Rafael Oliveira", role: "Usuário há 1 ano", quote: "O que mais gosto é o planejamento nutricional. Consegui finalmente manter uma dieta consistente graças ao aplicativo." }
+            ].map((testimonial, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                viewport={{ once: true }}
+              >
+                <TestimonialCard name={testimonial.name} role={testimonial.role} quote={testimonial.quote} />
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* CTA Section */}
       <section className="py-20 bg-fitness-primary/10">
-        <div className="container mx-auto px-4 text-center">
+        <motion.div 
+          className="container mx-auto px-4 text-center"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          viewport={{ once: true }}
+        >
           <h2 className="text-3xl font-bold mb-4">Pronto para Transformar seus Hábitos?</h2>
           <p className="text-xl text-gray-700 mb-8 max-w-3xl mx-auto">
             Junte-se a milhares de pessoas que já estão alcançando seus objetivos com o ForgeNFuel.
@@ -134,7 +150,7 @@ const LandingPage = () => {
           <Button asChild size="lg" className="bg-fitness-primary hover:bg-fitness-primary/90">
             <Link to="/auth/register">Começar Gratuitamente</Link>
           </Button>
-        </div>
+        </motion.div>
       </section>
 
       {/* Footer */}

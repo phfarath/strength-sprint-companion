@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import WorkoutForm from '@/components/workout/WorkoutForm';
 import WorkoutFormWithAI from '@/components/workout/WorkoutFormWithAI';
 import { daysOfWeek, WorkoutPlan } from '@/types';
@@ -216,12 +217,71 @@ const WorkoutPlanning = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="view">Visualizar Treinos</TabsTrigger>
-            <TabsTrigger value="create">Criar Novo Treino</TabsTrigger>
-            <TabsTrigger value="edit" disabled={!editingWorkout}>Editar Treino</TabsTrigger>
-            <TabsTrigger value="public">Treinos Públicos</TabsTrigger>
-          </TabsList>
+          {/* Versão mobile - dropdown */}
+          <div className="md:hidden mb-6">
+            <Select value={activeTab} onValueChange={setActiveTab}>
+              <SelectTrigger className="w-full">
+                <SelectValue>
+                  {activeTab === 'view' && 'Visualizar Treinos'}
+                  {activeTab === 'create' && 'Criar Novo Treino'}
+                  {activeTab === 'edit' && 'Editar Treino'}
+                  {activeTab === 'public' && 'Treinos Públicos'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="view">
+                  <div className="flex items-center gap-2">
+                    <Calendar size={16} />
+                    Visualizar Treinos
+                  </div>
+                </SelectItem>
+                <SelectItem value="create">
+                  <div className="flex items-center gap-2">
+                    <Plus size={16} />
+                    Criar Novo Treino
+                  </div>
+                </SelectItem>
+                <SelectItem value="edit" disabled={!editingWorkout}>
+                  <div className="flex items-center gap-2">
+                    <Edit size={16} />
+                    Editar Treino
+                  </div>
+                </SelectItem>
+                <SelectItem value="public">
+                  <div className="flex items-center gap-2">
+                    <Search size={16} />
+                    Treinos Públicos
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Versão desktop - tabs melhoradas */}
+          <div className="hidden md:block mb-6">
+            <TabsList className="grid w-full grid-cols-4 h-12">
+              <TabsTrigger value="view" className="flex items-center gap-2 text-sm">
+                <Calendar size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Visualizar</span>
+                <span className="lg:hidden">Ver</span>
+              </TabsTrigger>
+              <TabsTrigger value="create" className="flex items-center gap-2 text-sm">
+                <Plus size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Criar Novo</span>
+                <span className="lg:hidden">Criar</span>
+              </TabsTrigger>
+              <TabsTrigger value="edit" disabled={!editingWorkout} className="flex items-center gap-2 text-sm">
+                <Edit size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Editar</span>
+                <span className="lg:hidden">Editar</span>
+              </TabsTrigger>
+              <TabsTrigger value="public" className="flex items-center gap-2 text-sm">
+                <Search size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Públicos</span>
+                <span className="lg:hidden">Público</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <AnimatePresence mode="wait">
             <motion.div
