@@ -17,6 +17,7 @@ import ProgressDashboard from './pages/progress/ProgressDashboard'; // Adicione 
 import MealPlanning from './pages/nutrition/MealPlanning';
 import FoodDiary from './pages/nutrition/FoodDiary';
 import ProfileSettings from './pages/user/ProfileSettings';
+import Settings from './pages/user/Settings';
 import FeedbackPage from './pages/user/FeedbackPage';
 
 // Importações de páginas de IA
@@ -27,6 +28,8 @@ import DocumentAnalysis from './pages/ai/DocumentAnalysis';
 // Importação de componentes e contexto
 import { AppProvider } from './context/AppContext';
 import { ProtectedRoute, PublicRoute } from './components/routing/RouteGuards';
+import SettingsApplier from '@/components/settings/SettingsApplier';
+import { I18nProvider } from '@/i18n';
 
 const queryClient = new QueryClient();
 
@@ -35,9 +38,11 @@ function App() {
     <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID as string}>
       <QueryClientProvider client={queryClient}>
         <AppProvider>
-          <TooltipProvider>
-            <Router>
-              <Routes>
+          <I18nProvider>
+            <TooltipProvider>
+              <Router>
+                <SettingsApplier />
+                <Routes>
                 {/* Rotas públicas */}
                 <Route path="/" element={<PublicRoute><LandingPage /></PublicRoute>} />
                 <Route path="/auth/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -52,6 +57,7 @@ function App() {
                 <Route path="/nutrition/diary" element={<ProtectedRoute><FoodDiary /></ProtectedRoute>} />
                 <Route path="/progress" element={<ProtectedRoute><ProgressDashboard /></ProtectedRoute>} />
                 <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
                 <Route path="/feedback" element={<ProtectedRoute><FeedbackPage /></ProtectedRoute>} />
                 
                 {/* Rotas de IA */}
@@ -61,11 +67,12 @@ function App() {
                 
                 {/* Redirecionar para dashboard se o usuário já estiver autenticado */}
                 <Route path="*" element={<Navigate to="/dashboard" />} />
-              </Routes>
-              
-              <Toaster />
-            </Router>
-          </TooltipProvider>
+                </Routes>
+                
+                <Toaster />
+              </Router>
+            </TooltipProvider>
+          </I18nProvider>
         </AppProvider>
       </QueryClientProvider>
     </GoogleOAuthProvider>

@@ -36,6 +36,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   : [
       'http://localhost:5173',
       'http://localhost:8080',
+      'http://localhost:8081',
       'https://forgenfuel.vercel.app',
     ];
 
