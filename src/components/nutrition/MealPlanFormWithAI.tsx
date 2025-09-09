@@ -67,14 +67,21 @@ const MealPlanFormWithAI: React.FC<MealPlanFormWithAIProps> = ({
       
       // Dados do usuário para a IA
       const userData = {
-        age: user?.birthdate ? Math.floor((new Date().getTime() - new Date(user.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
+        age: user?.birthdate
+          ? Math.floor(
+              (Date.now() - new Date(user.birthdate).getTime()) /
+                (365.25 * 24 * 60 * 60 * 1000)
+            )
+          : undefined,
         weight: user?.weight,
         height: user?.height,
-        goal: 'melhorar a saúde'
+        goal: (user as any)?.goal,
+        dietaryRestrictions: (user as any)?.dietaryRestrictions,
+        foodPreferences: (user as any)?.foodPreferences,
       };
-      
+
       const nutritionalGoals = user?.nutritionGoals || {};
-      
+
       // Chamar a IA para gerar o plano
       const response = await generateAIMealPlan({ userData, nutritionalGoals });
       
