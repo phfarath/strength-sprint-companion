@@ -26,9 +26,10 @@ function attachNutrition(plan) {
     totals.fat += nutrition.fat;
     return { ...meal, nutrition };
   });
-  const { is_public, ...rest } = plan;
+  const { is_public, raw_response, ...rest } = plan;
   return {
     ...rest,
+    rawResponse: raw_response,
     meals,
     isPublic: plan.isPublic ?? is_public ?? false,
     totalNutrition: totals,
@@ -268,7 +269,7 @@ router.get('/meal-plans/public', auth, async (req, res) => {
 router.post('/meal-plans', auth, async (req, res) => {
   try {
     console.log('Criando plano alimentar, dados recebidos:', JSON.stringify(req.body, null, 2));
-    const { name, date, frequency, meals, notes, isPublic } = req.body;
+    const { name, date, frequency, meals, notes, isPublic, rawResponse } = req.body;
     
     if (!name || !date) {
       return res.status(400).json({ message: 'Nome e data são obrigatórios' });
@@ -289,6 +290,7 @@ router.post('/meal-plans', auth, async (req, res) => {
           frequency: frequency || null,
           notes: notes || null,
           is_public: Boolean(isPublic), // <- ajustado
+          raw_response: rawResponse || null,
           userId
         }
       });
@@ -386,7 +388,7 @@ router.put('/meal-plans/:id', auth, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const userId = parseInt(req.user.id);
-  const { name, date, frequency, meals, notes, isPublic } = req.body;
+    const { name, date, frequency, meals, notes, isPublic, rawResponse } = req.body;
     
     console.log(`Tentando atualizar plano alimentar com ID: ${id}`);
     console.log('Dados recebidos:', JSON.stringify(meals, null, 2));
@@ -463,6 +465,7 @@ router.put('/meal-plans/:id', auth, async (req, res) => {
         frequency: frequency || null,
         notes: notes || null,
         is_public: Boolean(isPublic),
+        ...(rawResponse !== undefined ? { raw_response: rawResponse } : {}),
         meals: {
           create: validMeals.map(meal => ({
             name: meal.name || 'Refeição',
