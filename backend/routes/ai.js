@@ -88,18 +88,83 @@ router.post('/meal-plans', auth, async (req, res) => {
     };
     
     const nutritionalGoals = user.nutritionGoals || {};
-    
+
     // Gerar plano alimentar com a IA
-    const mealPlan = await generateMealPlan(userData, nutritionalGoals);
-    
+    const aiResponse = await generateMealPlan(userData, nutritionalGoals);
+
+    let parsedPlan;
+    try {
+      parsedPlan = JSON.parse(aiResponse);
+    } catch (parseError) {
+      console.error('Erro ao parsear plano alimentar da IA:', parseError);
+      return res.status(500).json({
+        success: false,
+        message: 'Formato de plano alimentar inválido retornado pela IA'
+      });
+    }
+
+    const storedPlan = await prisma.$transaction(async (tx) => {
+      const plan = await tx.mealPlan.create({
+        data: {
+          name: 'Plano Alimentar IA',
+          date: new Date().toISOString().split('T')[0],
+          userId: parseInt(userId)
+        }
+      });
+
+      for (const meal of parsedPlan.meals || []) {
+        const mealRecord = await tx.meal.create({
+          data: {
+            name: meal.name,
+            mealPlanId: plan.id
+          }
+        });
+
+        for (const item of meal.items || []) {
+          const food = await tx.food.create({
+            data: {
+              name: item.name,
+              weight: parseFloat(item.quantity) || 0,
+              calories: parseFloat(item.calories) || 0,
+              protein: parseFloat(item.protein) || 0,
+              carbs: parseFloat(item.carbs) || 0,
+              fat: parseFloat(item.fat) || 0,
+              userId: parseInt(userId)
+            }
+          });
+
+          await tx.mealFood.create({
+            data: {
+              mealId: mealRecord.id,
+              foodId: food.id,
+              quantity: 1
+            }
+          });
+        }
+      }
+
+      return tx.mealPlan.findUnique({
+        where: { id: plan.id },
+        include: {
+          meals: {
+            include: {
+              mealFoods: {
+                include: { food: true }
+              }
+            }
+          }
+        }
+      });
+    });
+
     res.json({
       success: true,
-      mealPlan
+      mealPlan: storedPlan
     });
   } catch (error) {
     console.error('Erro ao gerar plano alimentar:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Erro ao gerar plano alimentar',
       error: error.message 
     });
