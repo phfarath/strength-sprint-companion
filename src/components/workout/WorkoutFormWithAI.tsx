@@ -23,7 +23,8 @@ const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
   initialWorkout,
   exercises = []
 }) => {
-  const { generateAIWorkoutPlan, addWorkoutPlan } = useAppContext();
+
+  const { generateAIWorkoutPlan, user } = useAppContext();
   const { toast } = useToast();
 
   // Usar exercises da prop ou array vazio
@@ -141,12 +142,20 @@ const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
 
       // Dados do usuário para a IA
       const userData = {
-        goal: 'melhorar a saúde',
-        fitnessLevel: 'intermediário',
-        availableDays: 5,
-        equipment: 'academia completa',
-        injuries: 'nenhuma',
-        preferences: 'musculação'
+        age: user?.birthdate
+          ? Math.floor(
+              (Date.now() - new Date(user.birthdate).getTime()) /
+                (365.25 * 24 * 60 * 60 * 1000)
+            )
+          : undefined,
+        weight: user?.weight,
+        height: user?.height,
+        goal: (user as any)?.goal,
+        fitnessLevel: (user as any)?.fitnessLevel,
+        availableDays: (user as any)?.availableDays,
+        equipment: (user as any)?.equipment,
+        injuries: (user as any)?.injuries,
+        preferences: (user as any)?.workoutPreferences || (user as any)?.preferences,
       };
 
       // Chamar a IA para gerar o plano
