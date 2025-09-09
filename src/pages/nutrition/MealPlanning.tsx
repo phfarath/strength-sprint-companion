@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
+import PageHeader from '@/components/layout/PageHeader';
 import { useAppContext } from '@/context/AppContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,7 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 
 const MealPlanning: React.FC = () => {
-  const { mealPlans, addMealPlan, updateMealPlan, deleteMealPlan } = useAppContext();
+  const { mealPlans, updateMealPlan, deleteMealPlan } = useAppContext();
   const { toast } = useToast();
   const [editingMealPlan, setEditingMealPlan] = useState<MealPlan | null>(null);
   const [foodModalOpen, setFoodModalOpen] = useState(false);
@@ -78,17 +79,8 @@ const MealPlanning: React.FC = () => {
     return list.filter(f => (f?.name || '').toLowerCase().includes(q));
   }, [foods, searchQuery]);
 
-  const handleCreateMealPlan = async (mealPlan: Omit<MealPlan, 'id'>) => {
-    try {
-      await addMealPlan(mealPlan);
-      setActiveTab('view');
-    } catch (error) {
-      toast({
-        title: "Erro ao criar plano",
-        description: "Não foi possível salvar o plano alimentar no servidor.",
-        variant: "destructive"
-      });
-    }
+  const handleCreateMealPlan = (mealPlan: MealPlan) => {
+    setActiveTab('view');
   };
 
   const handleUpdateMealPlan = async (mealPlan: MealPlan) => {
@@ -258,14 +250,9 @@ const MealPlanning: React.FC = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="container mx-auto px-4 py-6 max-w-7xl"
+        className="space-y-6"
       >
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Planejamento Alimentar</h1>
-          <p className="text-gray-600">
-            Crie e gerencie seus planos de refeição para alcançar suas metas nutricionais.
-          </p>
-        </div>
+        <PageHeader title="Planejamento Alimentar" description="Crie e gerencie seus planos de refei��o para alcan�ar suas metas nutricionais." icon={UtensilsCrossed} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Versão mobile - dropdown */}
@@ -705,3 +692,6 @@ const MealPlanning: React.FC = () => {
 };
 
 export default MealPlanning;
+
+
+

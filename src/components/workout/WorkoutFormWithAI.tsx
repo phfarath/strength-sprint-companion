@@ -23,6 +23,7 @@ const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
   initialWorkout,
   exercises = []
 }) => {
+
   const { generateAIWorkoutPlan, user } = useAppContext();
   const { toast } = useToast();
 
@@ -138,7 +139,7 @@ const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
   const handleGenerateWithAI = async () => {
     try {
       setIsLoading(true);
-      
+
       // Dados do usuário para a IA
       const userData = {
         age: user?.birthdate
@@ -156,25 +157,96 @@ const WorkoutFormWithAI: React.FC<WorkoutFormWithAIProps> = ({
         injuries: (user as any)?.injuries,
         preferences: (user as any)?.workoutPreferences || (user as any)?.preferences,
       };
-      
+
       // Chamar a IA para gerar o plano
       const response = await generateAIWorkoutPlan(userData);
-      
-      // Aqui você pode processar a resposta da IA e atualizar o formulário
-      // Por enquanto, vamos mostrar a resposta em um toast
-      toast({
-        title: "Plano gerado com IA",
-        description: "O plano de treino foi gerado com sucesso. Verifique a resposta da IA.",
-      });
-      
-      // Em uma implementação completa, você processaria a resposta da IA
-      // e atualizaria os campos do formulário com base nela
+
+      let planData: any = response.data?.workoutPlan;
+      if (typeof planData === 'string') {
+        try {
+          planData = JSON.parse(planData);
+        } catch (err) {
+          console.error('Erro ao interpretar resposta da IA:', err);
+          toast({
+            title: 'Erro',
+            description: 'Não foi possível interpretar o plano gerado.',
+            variant: 'destructive'
+          });
+          return;
+        }
+      }
+
+      if (planData) {
+        if (planData.name) {
+          setName(planData.name);
+        }
+
+        if (planData.dayOfWeek !== undefined) {
+          if (typeof planData.dayOfWeek === 'number') {
+            setDayOfWeek(planData.dayOfWeek);
+          } else if (typeof planData.dayOfWeek === 'string') {
+            const idx = daysOfWeek.findIndex(
+              d => d.toLowerCase() === planData.dayOfWeek.toLowerCase()
+            );
+            if (idx >= 0) setDayOfWeek(idx);
+          }
+        }
+
+        if (Array.isArray(planData.exercises)) {
+          const exercisesFromAI: Exercise[] = planData.exercises.map((ex: any, idx: number) => {
+            const existing = availableExercises.find(
+              (e: any) => e.name.toLowerCase() === (ex.name || '').toLowerCase()
+            );
+            return {
+              id: existing?.id || `ai-${idx}`,
+              name: existing?.name || ex.name || `Exercício ${idx + 1}`,
+              muscleGroup: existing?.muscleGroup || ex.muscleGroup || '',
+              sets: ex.sets || 3,
+              reps: ex.reps || 10,
+              weight: ex.weight || 0,
+              restSeconds: ex.restSeconds || 0,
+              notes: ex.notes || ''
+            } as Exercise;
+          });
+
+          setSelectedExercises(exercisesFromAI);
+
+          toast({
+            title: 'Plano gerado com IA',
+            description: 'Revise o plano gerado e confirme para salvar.',
+          });
+
+          if (window.confirm('Deseja salvar este plano de treino?')) {
+            try {
+              await addWorkoutPlan({
+                name: planData.name || 'Treino IA',
+                dayOfWeek:
+                  typeof planData.dayOfWeek === 'number'
+                    ? planData.dayOfWeek
+                    : daysOfWeek.findIndex(
+                        d => d.toLowerCase() === String(planData.dayOfWeek).toLowerCase()
+                      ),
+                exercises: exercisesFromAI,
+                notes,
+                isPublic
+              });
+            } catch (err) {
+              console.error('Erro ao salvar plano gerado:', err);
+              toast({
+                title: 'Erro',
+                description: 'Não foi possível salvar o plano gerado.',
+                variant: 'destructive'
+              });
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Erro ao gerar plano com IA:', error);
       toast({
-        title: "Erro",
-        description: "Não foi possível gerar o plano com IA. Tente novamente.",
-        variant: "destructive"
+        title: 'Erro',
+        description: 'Não foi possível gerar o plano com IA. Tente novamente.',
+        variant: 'destructive'
       });
     } finally {
       setIsLoading(false);

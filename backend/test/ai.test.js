@@ -15,7 +15,16 @@ const mockUser = {
 };
 const mockPrisma = {
   $queryRaw: jest.fn().mockResolvedValue([{ test: 1 }]),
-  user: { findUnique: jest.fn().mockResolvedValue(mockUser) }
+  user: { findUnique: jest.fn().mockResolvedValue(mockUser) },
+  exercise: {
+    findFirst: jest.fn().mockResolvedValue({ id: 1, name: 'Push Up', muscle_group: 'chest' }),
+    create: jest.fn().mockResolvedValue({ id: 1, name: 'Push Up', muscle_group: 'chest' })
+  },
+  workoutPlan: {
+    create: jest.fn().mockImplementation(({ data }) =>
+      Promise.resolve({ id: 1, ...data })
+    )
+  }
 };
 
 jest.mock('@prisma/client', () => ({
@@ -24,7 +33,15 @@ jest.mock('@prisma/client', () => ({
 
 // Mock AI service functions
 jest.mock('../services/aiService', () => ({
-  generateWorkoutPlan: jest.fn().mockResolvedValue({ plan: 'workout' }),
+  generateWorkoutPlan: jest
+    .fn()
+    .mockResolvedValue(
+      JSON.stringify({
+        plan: [
+          { day: 'Monday', exercises: [{ name: 'Push Up', sets: 3, reps: 10 }] }
+        ]
+      })
+    ),
   generateMealPlan: jest.fn().mockResolvedValue({ plan: 'meal' }),
   generateHealthAssessment: jest.fn().mockResolvedValue({ status: 'ok' }),
   analyzeHealthDocument: jest.fn().mockResolvedValue({ summary: 'analysis' }),
