@@ -34,6 +34,7 @@ router.get('/plans', auth, async (req, res) => {
       dayOfWeek: plan.day_of_week,
       notes: plan.notes,
       isPublic: plan.is_public,
+      rawResponse: plan.raw_response,
       exercises: plan.exercises.map(pe => ({
         id: pe.exercise.id.toString(),
         name: pe.exercise.name,
@@ -62,7 +63,7 @@ router.post('/plans', auth, async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     
-    const { name, dayOfWeek, exercises, notes, isPublic } = req.body;
+    const { name, dayOfWeek, exercises, notes, isPublic, rawResponse } = req.body;
     
     const workoutPlan = await prisma.$transaction(async (tx) => {
       // 1. Criar o plano
@@ -72,7 +73,8 @@ router.post('/plans', auth, async (req, res) => {
           day_of_week: dayOfWeek,
           notes: notes || null,
           is_public: Boolean(isPublic),
-          user_id: userId
+          user_id: userId,
+          raw_response: rawResponse || null
         }
       });
       
@@ -116,6 +118,7 @@ router.post('/plans', auth, async (req, res) => {
       dayOfWeek: workoutPlan.day_of_week,
       notes: workoutPlan.notes,
       isPublic: workoutPlan.is_public,
+      rawResponse: workoutPlan.raw_response,
       exercises: workoutPlan.exercises.map(pe => ({
         id: pe.exercise.id.toString(),
         name: pe.exercise.name,
@@ -145,7 +148,7 @@ router.put('/plans/:id', auth, async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     
-    const { name, dayOfWeek, exercises, notes, isPublic } = req.body;
+    const { name, dayOfWeek, exercises, notes, isPublic, rawResponse } = req.body;
     
     const updatedPlan = await prisma.$transaction(async (tx) => {
       // Verificar se o plano pertence ao usuário
@@ -164,7 +167,8 @@ router.put('/plans/:id', auth, async (req, res) => {
           name,
           day_of_week: dayOfWeek,
           notes: notes || null,
-          is_public: Boolean(isPublic)
+          is_public: Boolean(isPublic),
+          ...(rawResponse !== undefined ? { raw_response: rawResponse } : {})
         }
       });
       
@@ -213,6 +217,7 @@ router.put('/plans/:id', auth, async (req, res) => {
       dayOfWeek: updatedPlan.day_of_week,
       notes: updatedPlan.notes,
       isPublic: updatedPlan.is_public,
+      rawResponse: updatedPlan.raw_response,
       exercises: updatedPlan.exercises.map(pe => ({
         id: pe.exercise.id.toString(),
         name: pe.exercise.name,
@@ -523,6 +528,7 @@ router.get('/plans/public', auth, async (req, res) => {
       dayOfWeek: plan.day_of_week,
       notes: plan.notes,
       isPublic: plan.is_public,
+      rawResponse: plan.raw_response,
       exercises: plan.exercises.map(pe => ({
         id: pe.exercise.id.toString(),
         name: pe.exercise.name,

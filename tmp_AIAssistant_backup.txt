@@ -1,14 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import FullScreenLayout from '@/components/layout/FullScreenLayout';
+import React, { useState, useRef, useEffect } from 'react';
+import Layout from '@/components/layout/Layout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/components/ui/use-toast';
-import { Apple, Bot, Dumbbell, FileText, Heart, Loader2, MessageCircle, Send, User, ChevronLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Loader2, Send, Dumbbell, Apple, FileText, Heart, MessageCircle, Bot, User } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ChatMessage {
   id: string;
@@ -19,16 +20,9 @@ interface ChatMessage {
 }
 
 const AIAssistant = () => {
-  const {
-    user,
-    generateAIWorkoutPlan,
-    generateAIMealPlan,
-    generateAIHealthAssessment,
-    analyzeAIHealthDocument,
-    askAIQuestion,
-  } = useAppContext();
+  const { user, generateAIWorkoutPlan, generateAIMealPlan, generateAIHealthAssessment, analyzeAIHealthDocument, askAIQuestion } = useAppContext();
   const { toast } = useToast();
-
+  
   const [chatMode, setChatMode] = useState('chat');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
@@ -41,59 +35,64 @@ const AIAssistant = () => {
     { value: 'workout', label: 'Treinos', icon: Dumbbell, description: 'Criação e orientação sobre planos de treino' },
     { value: 'nutrition', label: 'Nutrição', icon: Apple, description: 'Planejamento alimentar e orientações nutricionais' },
     { value: 'health', label: 'Saúde', icon: Heart, description: 'Avaliações de saúde e recomendações gerais' },
-    { value: 'document', label: 'Documentos', icon: FileText, description: 'Análise de documentos e exames de saúde' },
+    { value: 'document', label: 'Documentos', icon: FileText, description: 'Análise de documentos e exames de saúde' }
   ];
 
-  const currentModeInfo = chatModes.find((mode) => mode.value === chatMode);
+  const currentModeInfo = chatModes.find(mode => mode.value === chatMode);
 
+  // Scroll para a última mensagem
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  // Adicionar mensagem ao chat
   const addMessage = (content: string, type: 'user' | 'ai') => {
     const newMessage: ChatMessage = {
       id: Date.now().toString(),
       type,
       content,
       timestamp: new Date(),
-      mode: chatMode,
+      mode: chatMode
     };
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages(prev => [...prev, newMessage]);
   };
 
+  // Função principal para enviar mensagem
   const handleSendMessage = async () => {
     if (!currentMessage.trim() && chatMode !== 'document') {
       toast({
-        title: 'Mensagem vazia',
-        description: 'Por favor, digite uma mensagem.',
-        variant: 'destructive',
+        title: "Mensagem vazia",
+        description: "Por favor, digite uma mensagem.",
+        variant: "destructive"
       });
       return;
     }
 
     if (chatMode === 'document' && !documentContent.trim()) {
       toast({
-        title: 'Documento vazio',
-        description: 'Por favor, insira o conteúdo do documento para análise.',
-        variant: 'destructive',
+        title: "Documento vazio",
+        description: "Por favor, insira o conteúdo do documento para análise.",
+        variant: "destructive"
       });
       return;
     }
 
     try {
       setIsLoading(true);
-
+      
+      // Adicionar mensagem do usuário
       if (chatMode === 'document') {
         addMessage(`Analisar documento: ${documentContent.substring(0, 100)}...`, 'user');
       } else {
         addMessage(currentMessage, 'user');
       }
 
-      let response: any;
+      let response;
+      
       switch (chatMode) {
         case 'workout':
           response = await handleWorkoutMode();
@@ -112,36 +111,36 @@ const AIAssistant = () => {
           break;
       }
 
+      // Adicionar resposta da IA
       addMessage(response, 'ai');
+      
+      // Limpar inputs
       setCurrentMessage('');
-      if (chatMode === 'document') setDocumentContent('');
+      if (chatMode === 'document') {
+        setDocumentContent('');
+      }
+
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       toast({
-        title: 'Erro',
-        description: 'Não foi possível obter resposta da IA. Tente novamente.',
-        variant: 'destructive',
+        title: "Erro",
+        description: "Não foi possível obter resposta da IA. Tente novamente.",
+        variant: "destructive"
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Modo Chat Geral
+  // Handlers específicos para cada modo
   const handleChatMode = async () => {
     const response = await askAIQuestion(currentMessage);
     return response.data.answer;
   };
 
-  // Modo Treinos
   const handleWorkoutMode = async () => {
     const userData = {
-      age: user?.birthdate
-        ? Math.floor(
-            (new Date().getTime() - new Date(user.birthdate).getTime()) /
-              (365.25 * 24 * 60 * 60 * 1000),
-          )
-        : null,
+      age: user?.birthdate ? Math.floor((new Date().getTime() - new Date(user.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
       weight: user?.weight,
       height: user?.height,
       goal: 'melhorar a saúde',
@@ -150,53 +149,39 @@ const AIAssistant = () => {
       equipment: 'academia completa',
       injuries: 'nenhuma',
       preferences: 'musculação',
-      customRequest: currentMessage,
-    } as any;
-
+      customRequest: currentMessage
+    };
+    
     const response = await generateAIWorkoutPlan(userData);
     return response.data.workoutPlan;
   };
 
-  // Modo Nutrição
   const handleNutritionMode = async () => {
     const userData = {
-      age: user?.birthdate
-        ? Math.floor(
-            (new Date().getTime() - new Date(user.birthdate).getTime()) /
-              (365.25 * 24 * 60 * 60 * 1000),
-          )
-        : null,
+      age: user?.birthdate ? Math.floor((new Date().getTime() - new Date(user.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
       weight: user?.weight,
       height: user?.height,
       goal: 'melhorar a saúde',
-      customRequest: currentMessage,
-    } as any;
-
-    const nutritionalGoals = (user as any)?.nutritionGoals || {};
+      customRequest: currentMessage
+    };
+    
+    const nutritionalGoals = user?.nutritionGoals || {};
+    
     const response = await generateAIMealPlan({ userData, nutritionalGoals });
     return response.data.mealPlan;
   };
 
-  // Modo Saúde
   const handleHealthMode = async () => {
     const userData = {
-      age: user?.birthdate
-        ? Math.floor(
-            (new Date().getTime() - new Date(user.birthdate).getTime()) /
-              (365.25 * 24 * 60 * 60 * 1000),
-          )
-        : null,
+      age: user?.birthdate ? Math.floor((new Date().getTime() - new Date(user.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
       weight: user?.weight,
       height: user?.height,
       gender: 'não informado',
-      customRequest: currentMessage,
-    } as any;
-
+      customRequest: currentMessage
+    };
+    
     const healthData = {
-      bmi:
-        user?.weight && user?.height
-          ? (user.weight / Math.pow(user.height / 100, 2)).toFixed(1)
-          : null,
+      bmi: user?.weight && user?.height ? (user.weight / Math.pow(user.height / 100, 2)).toFixed(1) : null,
       bodyFatPercentage: null,
       bloodPressure: 'não informado',
       restingHeartRate: null,
@@ -205,32 +190,27 @@ const AIAssistant = () => {
       stressLevel: 'moderado',
       medicalConditions: 'nenhuma',
       medications: 'nenhum',
-      allergies: 'nenhuma',
-    } as any;
-
+      allergies: 'nenhuma'
+    };
+    
     const response = await generateAIHealthAssessment({ userData, healthData });
     return response.data.assessment;
   };
 
-  // Modo Documentos
   const handleDocumentMode = async () => {
     const userData = {
-      age: user?.birthdate
-        ? Math.floor(
-            (new Date().getTime() - new Date(user.birthdate).getTime()) /
-              (365.25 * 24 * 60 * 60 * 1000),
-          )
-        : null,
+      age: user?.birthdate ? Math.floor((new Date().getTime() - new Date(user.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null,
       weight: user?.weight,
       height: user?.height,
       gender: 'não informado',
-      goal: 'melhorar a saúde',
-    } as any;
-
+      goal: 'melhorar a saúde'
+    };
+    
     const response = await analyzeAIHealthDocument({ documentContent, userData });
     return response.data.analysis;
   };
 
+  // Placeholder para diferentes modos
   const getPlaceholder = () => {
     switch (chatMode) {
       case 'workout':
@@ -246,6 +226,7 @@ const AIAssistant = () => {
     }
   };
 
+  // Limpar chat ao mudar de modo
   const handleModeChange = (newMode: string) => {
     setChatMode(newMode);
     setCurrentMessage('');
@@ -253,71 +234,45 @@ const AIAssistant = () => {
   };
 
   return (
-    <FullScreenLayout
-      topbar={(
-        <div className="h-14 w-full">
-          <div className="h-full w-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link to="/dashboard" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900">
-                <ChevronLeft className="w-5 h-5" />
-                <span className="hidden sm:inline">Voltar</span>
-              </Link>
-              <div className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-fitness-primary" />
-                <span className="font-semibold text-gray-900">Assistente de IA</span>
+    <Layout>
+      <div className="flex flex-col h-[calc(100vh-80px)] max-w-none w-full">
+        {/* Header fixo */}
+        <div className="flex-shrink-0 border-b bg-white px-4 sm:px-6 py-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 flex items-center gap-2">
+                  {currentModeInfo && <currentModeInfo.icon className="w-6 h-6 text-fitness-primary" />}
+                  Assistente de IA
+                </h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  {currentModeInfo?.description || 'Sua assistente pessoal para treinos, nutrição, saúde e muito mais.'}
+                </p>
               </div>
-            </div>
-            <div className="min-w-[180px]">
-              <Select value={chatMode} onValueChange={handleModeChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {chatModes.map((mode) => (
-                    <SelectItem key={mode.value} value={mode.value}>
-                      <div className="flex items-center gap-2">
-                        <mode.icon size={16} />
-                        {mode.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-full sm:w-64">
+                <Select value={chatMode} onValueChange={handleModeChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {chatModes.map((mode) => (
+                      <SelectItem key={mode.value} value={mode.value}>
+                        <div className="flex items-center gap-2">
+                          <mode.icon size={16} />
+                          {mode.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </div>
-      )}
-    >
-      <div className="h-full w-full flex flex-col gap-4 px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        {/* <PageHeader
-          title="Assistente de IA"
-          description={
-            currentModeInfo?.description ||
-            'Sua assistente pessoal para treinos, nutrição, saúde e muito mais.'
-          }
-          icon={currentModeInfo?.icon || null}
-          right={(
-            <Select value={chatMode} onValueChange={handleModeChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {chatModes.map((mode) => (
-                  <SelectItem key={mode.value} value={mode.value}>
-                    <div className="flex items-center gap-2">
-                      <mode.icon size={16} />
-                      {mode.label}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        /> */}
 
-        {/* Área de mensagens */}
-        <div className="flex-1 min-h-0 w-full bg-gray-50 overflow-hidden border-y">
-          <div className="h-full w-full flex flex-col">
+        {/* Área de mensagens - ocupa espaço disponível */}
+        <div className="flex-1 overflow-hidden bg-gray-50">
+          <div className="h-full max-w-4xl mx-auto flex flex-col">
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6">
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
@@ -368,21 +323,19 @@ const AIAssistant = () => {
                           <Bot className="w-6 h-6 text-white" />
                         </div>
                       )}
-                      <div className={`max-w-[75%] ${message.type === 'user' ? 'order-first' : ''}`}>
-                        <div
-                          className={`rounded-2xl px-6 py-4 ${
-                            message.type === 'user'
-                              ? 'bg-fitness-primary text-white ml-auto'
-                              : 'bg-white border text-gray-900 shadow-sm'
-                          }`}
-                        >
-                          <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
+                      <div className={`max-w-[85%] ${message.type === 'user' ? 'order-first' : ''}`}>
+                        <div className={`rounded-2xl px-6 py-4 ${
+                          message.type === 'user' 
+                            ? 'bg-fitness-primary text-white ml-auto' 
+                            : 'bg-white border text-gray-900 shadow-sm'
+                        }`}>
+                          <div className="whitespace-pre-wrap text-base leading-relaxed">
+                            {message.content}
+                          </div>
                         </div>
-                        <div
-                          className={`text-xs text-gray-500 mt-2 px-2 ${
-                            message.type === 'user' ? 'text-right' : 'text-left'
-                          }`}
-                        >
+                        <div className={`text-xs text-gray-500 mt-2 px-2 ${
+                          message.type === 'user' ? 'text-right' : 'text-left'
+                        }`}>
                           {message.timestamp.toLocaleTimeString()}
                         </div>
                       </div>
@@ -394,7 +347,11 @@ const AIAssistant = () => {
                     </motion.div>
                   ))}
                   {isLoading && (
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex gap-4 justify-start">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-4 justify-start"
+                    >
                       <div className="w-10 h-10 rounded-full bg-fitness-primary flex items-center justify-center">
                         <Bot className="w-6 h-6 text-white" />
                       </div>
@@ -414,8 +371,8 @@ const AIAssistant = () => {
         </div>
 
         {/* Input fixo na parte inferior */}
-        <div className="border-t bg-white/95 backdrop-blur px-4 sm:px-6 py-4">
-          <div className="w-full">
+        <div className="flex-shrink-0 border-t bg-white px-4 sm:px-6 py-4">
+          <div className="max-w-4xl mx-auto">
             {chatMode === 'document' && (
               <div className="mb-4">
                 <Label htmlFor="document" className="text-sm font-medium text-gray-700">
@@ -431,7 +388,7 @@ const AIAssistant = () => {
                 />
               </div>
             )}
-
+            
             <div className="flex gap-3 items-end">
               <div className="flex-1">
                 <Textarea
@@ -449,24 +406,31 @@ const AIAssistant = () => {
                   }}
                 />
               </div>
-              <Button
+              <Button 
                 onClick={handleSendMessage}
-                disabled={
-                  isLoading ||
-                  (!currentMessage.trim() && chatMode !== 'document') ||
-                  (chatMode === 'document' && !documentContent.trim())
-                }
+                disabled={isLoading || (!currentMessage.trim() && chatMode !== 'document') || (chatMode === 'document' && !documentContent.trim())}
                 size="lg"
                 className="h-auto px-6 py-3 bg-fitness-primary hover:bg-fitness-primary/90"
               >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
               </Button>
             </div>
-
+            
             <div className="flex justify-between items-center mt-3">
-              <p className="text-xs text-gray-500">Pressione Enter para enviar, Shift+Enter para nova linha</p>
+              <p className="text-xs text-gray-500">
+                Pressione Enter para enviar, Shift+Enter para nova linha
+              </p>
               {messages.length > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => setMessages([])} className="text-xs text-gray-500 hover:text-gray-700">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setMessages([])}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
                   Limpar Chat
                 </Button>
               )}
@@ -474,8 +438,9 @@ const AIAssistant = () => {
           </div>
         </div>
       </div>
-    </FullScreenLayout>
+    </Layout>
   );
 };
 
 export default AIAssistant;
+

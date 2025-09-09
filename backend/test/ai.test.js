@@ -16,6 +16,7 @@ const mockUser = {
 const mockPrisma = {
   $queryRaw: jest.fn().mockResolvedValue([{ test: 1 }]),
   user: { findUnique: jest.fn().mockResolvedValue(mockUser) },
+
   mealPlan: {
     create: jest.fn().mockResolvedValue({ id: 1 }),
     findUnique: jest

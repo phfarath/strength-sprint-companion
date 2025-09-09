@@ -85,14 +85,15 @@ model Badge {
 }
 
 model WorkoutPlan {
-  id          Int      @id @default(autoincrement())
-  name        String
-  day_of_week Int // 0-6, domingo a sábado
-  notes       String?
-  user_id     Int
-  is_public   Boolean  @default(false)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  name         String
+  day_of_week  Int // 0-6, domingo a sábado
+  notes        String?
+  user_id      Int
+  is_public    Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  raw_response String?  @db.Text
 
   user      User                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   exercises WorkoutPlanExercise[]
@@ -231,15 +232,16 @@ model NutritionGoals {
 }
 
 model MealPlan {
-  id        Int     @id @default(autoincrement())
-  name      String
-  date      String
-  frequency String?
-  notes     String?
-  userId    Int
-  is_public Boolean @default(false)
-  user      User    @relation(fields: [userId], references: [id])
-  meals     Meal[]  @relation("MealPlanMeals")
+  id           Int     @id @default(autoincrement())
+  name         String
+  date         String
+  frequency    String?
+  notes        String?
+  userId       Int
+  is_public    Boolean @default(false)
+  raw_response String? @db.Text
+  user         User    @relation(fields: [userId], references: [id])
+  meals        Meal[]  @relation("MealPlanMeals")
 
   @@map("meal_plans")
 }
@@ -256,12 +258,12 @@ model Meal {
 }
 
 model MealFood {
-  id      Int   @id @default(autoincrement())
-  mealId  Int
-  meal    Meal  @relation("MealMealFoods", fields: [mealId], references: [id], onDelete: Cascade)
+  id       Int   @id @default(autoincrement())
+  mealId   Int
+  meal     Meal  @relation("MealMealFoods", fields: [mealId], references: [id], onDelete: Cascade)
   quantity Float @default(1)
-  foodId  Int
-  food    Food  @relation(fields: [foodId], references: [id])
+  foodId   Int
+  food     Food  @relation(fields: [foodId], references: [id])
 
   @@map("meal_foods")
 }
@@ -288,7 +290,7 @@ model UserSettings {
 model Consent {
   id        Int      @id @default(autoincrement())
   userId    Int
-  kind      String   // analytics | marketing | ai_training | etc
+  kind      String // analytics | marketing | ai_training | etc
   granted   Boolean
   timestamp DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -298,12 +300,12 @@ model Consent {
 }
 
 model DeletionRequest {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   userId      Int
-  status      String   // scheduled | completed | canceled
+  status      String // scheduled | completed | canceled
   scheduledAt DateTime?
-  created_at  DateTime @default(now())
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  created_at  DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, status])
   @@map("deletion_requests")
@@ -312,7 +314,7 @@ model DeletionRequest {
 model DataExportLog {
   id         Int      @id @default(autoincrement())
   userId     Int
-  status     String   // pending | ready | error
+  status     String // pending | ready | error
   url        String?
   created_at DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)

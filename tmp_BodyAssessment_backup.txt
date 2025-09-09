@@ -1,6 +1,5 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/layout/Layout';
-import PageHeader from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,14 +17,14 @@ const BodyAssessment = () => {
   const [age, setAge] = useState<string | number>(user?.birthdate ? Math.floor((new Date().getTime() - new Date(user.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : '');
   const [weight, setWeight] = useState<string | number>(user?.weight || '');
   const [height, setHeight] = useState<string | number>(user?.height || '');
-  const [gender, setGender] = useState('nÃ£o informado');
+  const [gender, setGender] = useState('não informado');
   const [activityLevel, setActivityLevel] = useState('moderado');
   const [sleepQuality, setSleepQuality] = useState('boa');
   const [stressLevel, setStressLevel] = useState('moderado');
   const [medicalConditions, setMedicalConditions] = useState('nenhuma');
   const [medications, setMedications] = useState('nenhum');
   const [allergies, setAllergies] = useState('nenhuma');
-  const [bloodPressure, setBloodPressure] = useState('nÃ£o informado');
+  const [bloodPressure, setBloodPressure] = useState('não informado');
   const [restingHeartRate, setRestingHeartRate] = useState('');
   const [bodyFatPercentage, setBodyFatPercentage] = useState('');
   const [assessmentResult, setAssessmentResult] = useState('');
@@ -61,10 +60,10 @@ const BodyAssessment = () => {
       const response = await generateAIHealthAssessment({ userData, healthData });
       setAssessmentResult(response.data.assessment);
     } catch (error) {
-      console.error('Erro ao gerar avaliaÃ§Ã£o:', error);
+      console.error('Erro ao gerar avaliação:', error);
       toast({
         title: "Erro",
-        description: "NÃ£o foi possÃ­vel gerar a avaliaÃ§Ã£o. Tente novamente.",
+        description: "Não foi possível gerar a avaliação. Tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -78,16 +77,21 @@ const BodyAssessment = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="space-y-6"
+        className="container mx-auto px-4 py-6 max-w-7xl"
       >
-        <PageHeader title="Avaliação Corporal com IA" description="Obtenha uma avaliação personalizada da sua saúde com base em seus dados." icon={Activity} />
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Avaliação Corporal com IA</h1>
+          <p className="text-gray-600">
+            Obtenha uma avaliação personalizada da sua saúde com base em seus dados.
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* FormulÃ¡rio de AvaliaÃ§Ã£o */}
+          {/* Formulário de Avaliação */}
           <Card className="bg-white">
             <CardHeader>
-              <CardTitle>Dados para AvaliaÃ§Ã£o</CardTitle>
-              <p className="text-gray-600">Preencha os campos abaixo para obter uma avaliaÃ§Ã£o personalizada.</p>
+              <CardTitle>Dados para Avaliação</CardTitle>
+              <p className="text-gray-600">Preencha os campos abaixo para obter uma avaliação personalizada.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -108,14 +112,14 @@ const BodyAssessment = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor="gender">GÃªnero</Label>
+                    <Label htmlFor="gender">Gênero</Label>
                     <select
                       id="gender"
                       value={gender}
                       onChange={(e) => setGender(e.target.value)}
                       className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-fitness-primary"
                     >
-                      <option value="nÃ£o informado">Prefiro nÃ£o informar</option>
+                      <option value="não informado">Prefiro não informar</option>
                       <option value="masculino">Masculino</option>
                       <option value="feminino">Feminino</option>
                       <option value="outro">Outro</option>
@@ -170,7 +174,7 @@ const BodyAssessment = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor="restingHeartRate">FrequÃªncia CardÃ­aca em Repouso (bpm)</Label>
+                    <Label htmlFor="restingHeartRate">Frequência Cardíaca em Repouso (bpm)</Label>
                     <Input
                       id="restingHeartRate"
                       type="number"
@@ -182,7 +186,7 @@ const BodyAssessment = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="bloodPressure">PressÃ£o Arterial</Label>
+                  <Label htmlFor="bloodPressure">Pressão Arterial</Label>
                   <Input
                     id="bloodPressure"
                     value={bloodPressure}
@@ -192,14 +196,14 @@ const BodyAssessment = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="activityLevel">NÃ­vel de Atividade</Label>
+                  <Label htmlFor="activityLevel">Nível de Atividade</Label>
                   <select
                     id="activityLevel"
                     value={activityLevel}
                     onChange={(e) => setActivityLevel(e.target.value)}
                     className="w-full h-10 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-fitness-primary"
                   >
-                    <option value="sedentÃ¡rio">SedentÃ¡rio</option>
+                    <option value="sedentário">Sedentário</option>
                     <option value="pouco ativo">Pouco Ativo</option>
                     <option value="moderado">Moderado</option>
                     <option value="ativo">Ativo</option>
@@ -224,7 +228,7 @@ const BodyAssessment = () => {
                   </div>
                   
                   <div>
-                    <Label htmlFor="stressLevel">NÃ­vel de Estresse</Label>
+                    <Label htmlFor="stressLevel">Nível de Estresse</Label>
                     <select
                       id="stressLevel"
                       value={stressLevel}
@@ -240,18 +244,18 @@ const BodyAssessment = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="medicalConditions">CondiÃ§Ãµes MÃ©dicas</Label>
+                  <Label htmlFor="medicalConditions">Condições Médicas</Label>
                   <Textarea
                     id="medicalConditions"
                     value={medicalConditions}
                     onChange={(e) => setMedicalConditions(e.target.value)}
-                    placeholder="Ex: Diabetes, hipertensÃ£o, etc."
+                    placeholder="Ex: Diabetes, hipertensão, etc."
                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="medications">MedicaÃ§Ãµes</Label>
+                    <Label htmlFor="medications">Medicações</Label>
                     <Textarea
                       id="medications"
                       value={medications}
@@ -281,17 +285,17 @@ const BodyAssessment = () => {
                   ) : (
                     <Activity className="w-4 h-4 mr-2" />
                   )}
-                  Gerar AvaliaÃ§Ã£o
+                  Gerar Avaliação
                 </Button>
               </form>
             </CardContent>
           </Card>
 
-          {/* Resultado da AvaliaÃ§Ã£o */}
+          {/* Resultado da Avaliação */}
           <Card className="bg-white">
             <CardHeader>
-              <CardTitle>Resultado da AvaliaÃ§Ã£o</CardTitle>
-              <p className="text-gray-600">Sua avaliaÃ§Ã£o personalizada com recomendaÃ§Ãµes.</p>
+              <CardTitle>Resultado da Avaliação</CardTitle>
+              <p className="text-gray-600">Sua avaliação personalizada com recomendações.</p>
             </CardHeader>
             <CardContent>
               {assessmentResult ? (
@@ -304,7 +308,7 @@ const BodyAssessment = () => {
                 <div className="text-center py-12">
                   <Activity className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">
-                    Preencha o formulÃ¡rio e clique em "Gerar AvaliaÃ§Ã£o" para obter sua anÃ¡lise personalizada.
+                    Preencha o formulário e clique em "Gerar Avaliação" para obter sua análise personalizada.
                   </p>
                 </div>
               )}
@@ -317,5 +321,4 @@ const BodyAssessment = () => {
 };
 
 export default BodyAssessment;
-
 

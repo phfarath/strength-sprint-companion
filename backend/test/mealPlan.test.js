@@ -43,19 +43,20 @@ describe('Meal Plans API', () => {
 
   test('creates a meal plan', async () => {
     mockPrisma.mealPlan.create.mockResolvedValueOnce({ id: 1 });
-    mockPrisma.mealPlan.findUnique.mockResolvedValueOnce({ id: 1, name: 'Plan', date: '2024-01-01', meals: [] });
+    mockPrisma.mealPlan.findUnique.mockResolvedValueOnce({ id: 1, name: 'Plan', date: '2024-01-01', meals: [], raw_response: 'raw meal' });
 
     const res = await request(app)
       .post('/api/nutrition/meal-plans')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: 'Plan', date: '2024-01-01', meals: [] });
+      .send({ name: 'Plan', date: '2024-01-01', meals: [], rawResponse: 'raw meal' });
 
     expect(res.statusCode).toBe(201);
-    expect(res.body).toHaveProperty('name', 'Plan');
+    expect(res.body).toHaveProperty('rawResponse', 'raw meal');
+    expect(mockPrisma.mealPlan.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ raw_response: 'raw meal' }) }));
   });
 
   test('lists user meal plans', async () => {
-    mockPrisma.mealPlan.findMany.mockResolvedValueOnce([{ id: 1, name: 'Plan', date: '2024-01-01', meals: [], is_public: false }]);
+    mockPrisma.mealPlan.findMany.mockResolvedValueOnce([{ id: 1, name: 'Plan', date: '2024-01-01', meals: [], is_public: false, raw_response: 'raw meal' }]);
 
     const res = await request(app)
       .get('/api/nutrition/meal-plans')
@@ -63,6 +64,7 @@ describe('Meal Plans API', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toHaveProperty('rawResponse', 'raw meal');
   });
 
   test('updates a meal plan', async () => {

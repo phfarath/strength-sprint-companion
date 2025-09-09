@@ -19,7 +19,7 @@ const prisma = new PrismaClient();
 router.post('/workout-plans', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Buscar dados do usuário
     const user = await prisma.user.findUnique({
       where: { id: parseInt(userId) },
@@ -27,33 +27,118 @@ router.post('/workout-plans', auth, async (req, res) => {
         nutritionGoals: true
       }
     });
-    
+
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
-    
+
     // Preparar dados para a IA
     const userData = {
       name: user.name,
-      age: user.birthdate ? Math.floor((new Date() - new Date(user.birthdate)) / (365.25 * 24 * 60 * 60 * 1000)) : null,
+      age: user.birthdate
+        ? Math.floor(
+            (new Date() - new Date(user.birthdate)) /
+              (365.25 * 24 * 60 * 60 * 1000)
+          )
+        : null,
       weight: user.weight,
       height: user.height,
       // Adicione mais campos conforme necessário
     };
-    
+
     // Gerar plano de treino com a IA
-    const workoutPlan = await generateWorkoutPlan(userData);
-    
+    const workoutPlanText = await generateWorkoutPlan(userData);
+
+    let planData;
+    try {
+      planData = JSON.parse(workoutPlanText);
+    } catch (parseError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Resposta da IA não é um JSON válido',
+      });
+    }
+
+    if (!planData.plan || !Array.isArray(planData.plan)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Formato de plano de treino inválido',
+      });
+    }
+
+    const dayToIndex = (day) => {
+      const map = {
+        sunday: 0,
+        monday: 1,
+        tuesday: 2,
+        wednesday: 3,
+        thursday: 4,
+        friday: 5,
+        saturday: 6,
+      };
+      return map[day?.toLowerCase()] ?? 0;
+    };
+
+    const createdPlans = [];
+
+    for (const dayPlan of planData.plan) {
+      const exercisesData = [];
+
+      if (Array.isArray(dayPlan.exercises)) {
+        for (let i = 0; i < dayPlan.exercises.length; i++) {
+          const ex = dayPlan.exercises[i];
+
+          let exercise = await prisma.exercise.findFirst({
+            where: { name: ex.name }
+          });
+
+          if (!exercise) {
+            exercise = await prisma.exercise.create({
+              data: {
+                name: ex.name,
+                muscle_group: ex.muscleGroup || 'unknown',
+                user_id: parseInt(userId),
+              }
+            });
+          }
+
+          exercisesData.push({
+            exercise_id: exercise.id,
+            sets: ex.sets || 0,
+            reps: ex.reps || 0,
+            weight_kg: ex.weight_kg || 0,
+            rest_seconds: ex.rest || null,
+            order_index: i,
+          });
+        }
+      }
+
+      const storedPlan = await prisma.workoutPlan.create({
+        data: {
+          name: dayPlan.day || 'Treino',
+          day_of_week: dayToIndex(dayPlan.day),
+          notes: dayPlan.notes || null,
+          user_id: parseInt(userId),
+          exercises: { create: exercisesData },
+        },
+        include: {
+          exercises: { include: { exercise: true } },
+        },
+      });
+
+      createdPlans.push(storedPlan);
+    }
+
     res.json({
       success: true,
-      workoutPlan
+      workoutPlan: createdPlans,
     });
   } catch (error) {
     console.error('Erro ao gerar plano de treino:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: 'Erro ao gerar plano de treino',
-      error: error.message 
+      error: error.message,
     });
   }
 });

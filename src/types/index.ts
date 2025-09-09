@@ -16,6 +16,7 @@ export interface WorkoutPlan {
   dayOfWeek: number; // 0-6, domingo a sábado
   notes?: string;
   isPublic?: boolean;
+  rawResponse?: string;
 }
 
 export interface WorkoutLog {
@@ -71,6 +72,7 @@ export interface MealPlan {
   meals: Meal[];
   notes?: string;
   isPublic?: boolean;
+  rawResponse?: string;
   totalNutrition?: {
     calories: number;
     protein: number;

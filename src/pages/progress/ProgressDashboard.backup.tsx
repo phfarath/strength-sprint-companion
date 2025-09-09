@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '@/components/layout/Layout';
-import PageHeader from '@/components/layout/PageHeader';
 import ExerciseProgressChart from '@/components/progress/ExerciseProgressChart';
 import MacroDistributionChart from '@/components/progress/MacroDistributionChart';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/context/AppContext';
+import { apiServices } from '@/services/api';
 import { motion } from 'framer-motion';
 import { TrendingUp, Target, Calendar, Award, Loader2, Activity, BarChart3 } from 'lucide-react';
 
@@ -16,7 +16,8 @@ const ProgressDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [progressData, setProgressData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<string>('workout');
-
+  
+  // Buscar dados de progresso do servidor
   useEffect(() => {
     fetchProgressData();
   }, []);
@@ -30,8 +31,17 @@ const ProgressDashboard = () => {
         return;
       }
 
-      // Placeholder: usar dados locais por enquanto
-      setProgressData({ workoutProgress: workoutLogs, nutritionProgress: mealPlans });
+      // Buscar dados de progresso (se a API existir)
+      // const [workoutProgress, nutritionProgress] = await Promise.all([
+      //   apiServices.getWorkoutProgress?.(),
+      //   apiServices.getNutritionProgress?.()
+      // ]);
+      
+      // Por enquanto usar dados locais
+      setProgressData({
+        workoutProgress: workoutLogs,
+        nutritionProgress: mealPlans
+      });
     } catch (error) {
       console.error('Erro ao buscar dados de progresso:', error);
     } finally {
@@ -39,39 +49,44 @@ const ProgressDashboard = () => {
     }
   };
 
-  // Estatísticas de treino
+  // Calcular estatísticas de treino
   const totalWorkouts = workoutLogs.length;
-  const completedWorkouts = workoutLogs.filter((log) => log.completed).length;
+  const completedWorkouts = workoutLogs.filter(log => log.completed).length;
   const completionRate = totalWorkouts > 0 ? Math.round((completedWorkouts / totalWorkouts) * 100) : 0;
-
-  // Mês atual
+  
+  // Obter dados para mês atual
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
-
-  const workoutsThisMonth = workoutLogs.filter((log) => {
+  
+  const workoutsThisMonth = workoutLogs.filter(log => {
     const logDate = new Date(log.date);
     return logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear;
   }).length;
 
-  // Streak (dias consecutivos)
+  // Calcular streak de treinos (dias consecutivos)
   const calculateWorkoutStreak = () => {
     if (workoutLogs.length === 0) return 0;
+    
     const sortedLogs = [...workoutLogs]
-      .filter((log) => log.completed)
+      .filter(log => log.completed)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
     let streak = 0;
-    let d = new Date();
+    let currentDate = new Date();
+    
     for (const log of sortedLogs) {
       const logDate = new Date(log.date);
-      const diffDays = Math.floor((d.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24));
+      const diffDays = Math.floor((currentDate.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24));
+      
       if (diffDays === streak) {
         streak++;
-        d = logDate;
+        currentDate = logDate;
       } else {
         break;
       }
     }
+    
     return streak;
   };
 
@@ -90,16 +105,26 @@ const ProgressDashboard = () => {
 
   return (
     <Layout>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5 }} className="space-y-6">
-        <PageHeader
-          title="Progresso"
-          description="Acompanhe sua evolução nos treinos e na nutrição."
-          icon={Activity}
-        />
-
-        {/* Cards */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="container mx-auto px-4 py-6 max-w-7xl"
+      >
+        <div className="mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Progresso</h1>
+          <p className="text-sm md:text-base text-gray-600">
+            Acompanhe sua evolução nos treinos e na nutrição.
+          </p>
+        </div>
+        
+        {/* Cards de estatísticas - responsivos */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-6">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
             <Card className="bg-white hover:shadow-lg transition-shadow">
               <CardContent className="p-4 md:pt-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -113,8 +138,12 @@ const ProgressDashboard = () => {
               </CardContent>
             </Card>
           </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
             <Card className="bg-white hover:shadow-lg transition-shadow">
               <CardContent className="p-4 md:pt-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -128,13 +157,17 @@ const ProgressDashboard = () => {
               </CardContent>
             </Card>
           </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
             <Card className="bg-white hover:shadow-lg transition-shadow">
               <CardContent className="p-4 md:pt-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                   <div className="mb-2 md:mb-0">
-                    <p className="text-gray-500 text-xs md:text-sm mb-1">Este mês</p>
+                    <p className="text-gray-500 text-xs md:text-sm mb-1">Este Mês</p>
                     <p className="text-xl md:text-3xl font-bold text-fitness-primary">{workoutsThisMonth}</p>
                     <p className="text-xs text-gray-500 mt-1">treinos realizados</p>
                   </div>
@@ -144,7 +177,11 @@ const ProgressDashboard = () => {
             </Card>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+          >
             <Card className="bg-white hover:shadow-lg transition-shadow">
               <CardContent className="p-4 md:pt-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -159,9 +196,9 @@ const ProgressDashboard = () => {
             </Card>
           </motion.div>
         </div>
-
+        
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          {/* Mobile - dropdown */}
+          {/* Versão mobile - dropdown */}
           <div className="md:hidden mb-6">
             <Select value={activeTab} onValueChange={setActiveTab}>
               <SelectTrigger className="w-full">
@@ -187,7 +224,7 @@ const ProgressDashboard = () => {
             </Select>
           </div>
 
-          {/* Desktop - tabs */}
+          {/* Versão desktop - tabs */}
           <div className="hidden md:block mb-6">
             <TabsList className="grid w-full grid-cols-2 h-12">
               <TabsTrigger value="workout" className="flex items-center gap-2">
@@ -200,13 +237,19 @@ const ProgressDashboard = () => {
               </TabsTrigger>
             </TabsList>
           </div>
-
+          
           <TabsContent value="workout">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
+              {/* Gráfico de progresso com altura responsiva */}
               <div className="w-full">
                 <ExerciseProgressChart />
               </div>
-
+              
               <Card className="bg-white">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg md:text-xl">Histórico de Treinos Recentes</CardTitle>
@@ -215,7 +258,7 @@ const ProgressDashboard = () => {
                   {workoutLogs.length > 0 ? (
                     <div className="space-y-3 md:space-y-4">
                       {workoutLogs.slice(0, 10).map((log, index) => (
-                        <motion.div
+                        <motion.div 
                           key={index}
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -227,22 +270,23 @@ const ProgressDashboard = () => {
                               Treino do dia {new Date(log.date).toLocaleDateString('pt-BR')}
                             </p>
                             <p className="text-xs md:text-sm text-gray-500">
-                              {log.exercises.length} exercícios ·{' '}
-                              {log.exercises.reduce((total, ex) => total + (ex as any).actualSets, 0)} séries totais
+                              {log.exercises.length} exercícios • {
+                                log.exercises.reduce((total, ex) => total + ex.actualSets, 0)
+                              } séries totais
                             </p>
                           </div>
                           <div className="text-left sm:text-right">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                log.completed ? 'bg-purple-100 text-purple-800' : 'bg-amber-100 text-amber-800'
-                              }`}
-                            >
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              log.completed 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : 'bg-amber-100 text-amber-800'
+                            }`}>
                               {log.completed ? 'Concluído' : 'Incompleto'}
                             </span>
                           </div>
                         </motion.div>
                       ))}
-
+                      
                       {workoutLogs.length > 10 && (
                         <div className="text-center pt-4">
                           <Button variant="outline" size="sm" className="w-full sm:w-auto">
@@ -262,13 +306,19 @@ const ProgressDashboard = () => {
               </Card>
             </motion.div>
           </TabsContent>
-
+          
           <TabsContent value="nutrition">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
+              {/* Gráfico de macros com altura responsiva */}
               <div className="w-full">
                 <MacroDistributionChart />
               </div>
-
+              
               <Card className="bg-white">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg md:text-xl">Análise Nutricional</CardTitle>
@@ -279,30 +329,30 @@ const ProgressDashboard = () => {
                       <p className="text-sm text-gray-500 mb-2">Proteínas</p>
                       <p className="text-xl md:text-2xl font-bold text-purple-600 mb-1">25%</p>
                       <p className="text-xs text-gray-500">Ideal: 25-35%</p>
-                      <div className="mt-2 text-xs text-purple-600">Dentro da meta</div>
+                      <div className="mt-2 text-xs text-purple-600">✓ Dentro da meta</div>
                     </div>
-
+                    
                     <div className="border rounded-lg p-4 text-center">
                       <p className="text-sm text-gray-500 mb-2">Carboidratos</p>
                       <p className="text-xl md:text-2xl font-bold text-yellow-600 mb-1">50%</p>
                       <p className="text-xs text-gray-500">Ideal: 45-55%</p>
-                      <div className="mt-2 text-xs text-purple-600">Dentro da meta</div>
+                      <div className="mt-2 text-xs text-purple-600">✓ Dentro da meta</div>
                     </div>
-
+                    
                     <div className="border rounded-lg p-4 text-center">
                       <p className="text-sm text-gray-500 mb-2">Gorduras</p>
                       <p className="text-xl md:text-2xl font-bold text-red-600 mb-1">25%</p>
                       <p className="text-xs text-gray-500">Ideal: 20-30%</p>
-                      <div className="mt-2 text-xs text-purple-600">Dentro da meta</div>
+                      <div className="mt-2 text-xs text-purple-600">✓ Dentro da meta</div>
                     </div>
                   </div>
-
+                  
                   <div className="mt-6 p-4 bg-purple-50 rounded-lg">
                     <h4 className="font-medium text-purple-900 mb-2 text-sm md:text-base">Recomendações</h4>
                     <ul className="text-xs md:text-sm text-purple-800 space-y-1">
-                      <li>Sua distribuição de macronutrientes está equilibrada</li>
-                      <li>Continue mantendo o consumo de proteínas para preservar massa muscular</li>
-                      <li>Considere ajustar as porções conforme seus objetivos de treino</li>
+                      <li>• Sua distribuição de macronutrientes está equilibrada</li>
+                      <li>• Continue mantendo o consumo de proteínas para preservar massa muscular</li>
+                      <li>• Considere ajustar as porções conforme seus objetivos de treino</li>
                     </ul>
                   </div>
                 </CardContent>
