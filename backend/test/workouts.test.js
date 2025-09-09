@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 
 process.env.JWT_SECRET = 'testsecret';
 
-const mockPlan = { id: 1, name: 'Plan', day_of_week: 'monday', notes: null, exercises: [] };
+const mockPlan = { id: 1, name: 'Plan', day_of_week: 'monday', notes: null, exercises: [], raw_response: 'raw text' };
 
 const mockPrisma = {
   $queryRaw: jest.fn().mockResolvedValue([{ test: 1 }]),
@@ -39,10 +39,11 @@ describe('Workout Plans API', () => {
     const res = await request(app)
       .post('/api/workouts/plans')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: 'Plan', dayOfWeek: 'monday', exercises: [] });
+      .send({ name: 'Plan', dayOfWeek: 'monday', exercises: [], rawResponse: 'raw text' });
 
     expect(res.statusCode).toBe(201);
-    expect(res.body).toHaveProperty('name', 'Plan');
+    expect(res.body).toHaveProperty('rawResponse', 'raw text');
+    expect(mockPrisma.workoutPlan.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ raw_response: 'raw text' }) }));
   });
 
   test('lists workout plans', async () => {
@@ -52,6 +53,7 @@ describe('Workout Plans API', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toHaveProperty('rawResponse', 'raw text');
   });
 
   test('updates a workout plan', async () => {
