@@ -20,7 +20,12 @@ const AI_MODELS = {
  * @param {number} maxTokens - Número máximo de tokens na resposta (opcional)
  * @returns {Promise<string>} - A resposta da IA
  */
-async function callOpenRouter(prompt, model = AI_MODELS.general, maxTokens = 1000) {
+async function callOpenRouter(
+  prompt,
+  model = AI_MODELS.general,
+  maxTokens = 1000,
+  extraParams = {}
+) {
   try {
     const response = await axios.post(
       `${OPENROUTER_BASE_URL}/chat/completions`,
@@ -33,6 +38,7 @@ async function callOpenRouter(prompt, model = AI_MODELS.general, maxTokens = 100
           },
         ],
         max_tokens: maxTokens,
+        ...extraParams,
       },
       {
         headers: {
@@ -59,7 +65,7 @@ async function callOpenRouter(prompt, model = AI_MODELS.general, maxTokens = 100
 async function generateWorkoutPlan(userData) {
   const prompt = `
     Com base nas seguintes informações do usuário, crie um plano de treino personalizado para uma semana:
-    
+
     Informações do usuário:
     - Idade: ${userData.age || 'Não informada'} anos
     - Peso: ${userData.weight || 'Não informado'} kg
@@ -70,18 +76,30 @@ async function generateWorkoutPlan(userData) {
     - Equipamentos disponíveis: ${userData.equipment || 'Não informado'}
     - Lesões ou limitações: ${userData.injuries || 'Nenhuma informada'}
     - Preferências de treino: ${userData.preferences || 'Nenhuma informada'}
-    
+
     Por favor, crie um plano de treino para uma semana com os seguintes detalhes:
     1. Divisão de treino por dias (ex: Segunda - Pernas, Terça - Peito, etc.)
     2. Exercícios específicos para cada dia
     3. Número de séries e repetições para cada exercício
     4. Descanso entre séries
     5. Observações importantes
-    
-    Formate a resposta como um plano de treino estruturado, fácil de ler e seguir.
+
+    A resposta deve ser estritamente um JSON com o formato:
+    {
+      "plan": [
+        {
+          "day": "Segunda",
+          "exercises": [
+            { "name": "Agachamento", "sets": 3, "reps": 12, "rest": 60 }
+          ]
+        }
+      ]
+    }
   `;
 
-  return await callOpenRouter(prompt, AI_MODELS.workout, 1500);
+  return await callOpenRouter(prompt, AI_MODELS.workout, 1500, {
+    response_format: { type: 'json_object' }
+  });
 }
 
 /**
