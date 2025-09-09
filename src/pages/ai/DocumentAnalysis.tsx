@@ -1,5 +1,6 @@
-import React, { useState, useRef } from 'react';
+﻿import React, { useState, useRef } from 'react';
 import Layout from '@/components/layout/Layout';
+import PageHeader from '@/components/layout/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,7 +29,7 @@ const DocumentAnalysis = () => {
       setFile(selectedFile);
       setFileName(selectedFile.name);
       
-      // Ler o conteúdo do arquivo
+      // Ler o conteÃºdo do arquivo
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
@@ -49,7 +50,7 @@ const DocumentAnalysis = () => {
     if (!documentText.trim()) {
       toast({
         title: "Documento vazio",
-        description: "Por favor, insira o texto do documento ou faça upload de um arquivo.",
+        description: "Por favor, insira o texto do documento ou faÃ§a upload de um arquivo.",
         variant: "destructive"
       });
       return;
@@ -65,7 +66,7 @@ const DocumentAnalysis = () => {
       console.error('Erro ao analisar documento:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível analisar o documento. Tente novamente.",
+        description: "NÃ£o foi possÃ­vel analisar o documento. Tente novamente.",
         variant: "destructive"
       });
     } finally {
@@ -93,21 +94,16 @@ const DocumentAnalysis = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="container mx-auto px-4 py-6 max-w-7xl"
+        className="space-y-6"
       >
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Análise de Documentos com IA</h1>
-          <p className="text-gray-600">
-            Faça upload de documentos médicos ou insira texto para obter uma análise personalizada.
-          </p>
-        </div>
+        <PageHeader title="Análise de Documentos com IA" description="Faça upload de documentos médicos ou insira texto para obter uma análise personalizada." icon={FileText} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Formulário de Análise */}
+          {/* FormulÃ¡rio de AnÃ¡lise */}
           <Card className="bg-white">
             <CardHeader>
-              <CardTitle>Documento para Análise</CardTitle>
-              <p className="text-gray-600">Faça upload de um documento ou insira o texto diretamente.</p>
+              <CardTitle>Documento para AnÃ¡lise</CardTitle>
+              <p className="text-gray-600">FaÃ§a upload de um documento ou insira o texto diretamente.</p>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -139,7 +135,7 @@ const DocumentAnalysis = () => {
                       id="documentText"
                       value={documentText}
                       onChange={(e) => setDocumentText(e.target.value)}
-                      placeholder="Cole aqui o texto do documento médico..."
+                      placeholder="Cole aqui o texto do documento mÃ©dico..."
                       rows={10}
                       className="font-mono text-sm"
                     />
@@ -206,12 +202,12 @@ const DocumentAnalysis = () => {
             </CardContent>
           </Card>
 
-          {/* Resultado da Análise */}
+          {/* Resultado da AnÃ¡lise */}
           <Card className="bg-white">
             <CardHeader>
-              <CardTitle>Resultado da Análise</CardTitle>
+              <CardTitle>Resultado da AnÃ¡lise</CardTitle>
               <div className="flex justify-between items-center">
-                <p className="text-gray-600">Análise do documento com insights personalizados.</p>
+                <p className="text-gray-600">AnÃ¡lise do documento com insights personalizados.</p>
                 {analysisResult && (
                   <Button
                     variant="outline"
@@ -235,7 +231,7 @@ const DocumentAnalysis = () => {
                 <div className="text-center py-12">
                   <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <p className="text-gray-500">
-                    Faça upload de um documento ou insira texto e clique em "Analisar Documento" para obter a análise.
+                    FaÃ§a upload de um documento ou insira texto e clique em "Analisar Documento" para obter a anÃ¡lise.
                   </p>
                 </div>
               )}
@@ -248,3 +244,5 @@ const DocumentAnalysis = () => {
 };
 
 export default DocumentAnalysis;
+
+
