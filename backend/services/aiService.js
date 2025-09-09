@@ -93,7 +93,7 @@ async function generateWorkoutPlan(userData) {
 async function generateMealPlan(userData, nutritionalGoals) {
   const prompt = `
     Com base nas seguintes informações do usuário, crie um plano alimentar personalizado para um dia:
-    
+
     Informações do usuário:
     - Idade: ${userData.age || 'Não informada'} anos
     - Peso: ${userData.weight || 'Não informado'} kg
@@ -101,21 +101,38 @@ async function generateMealPlan(userData, nutritionalGoals) {
     - Objetivo: ${userData.goal || 'Não informado'}
     - Restrições alimentares: ${userData.dietaryRestrictions || 'Nenhuma informada'}
     - Preferências alimentares: ${userData.foodPreferences || 'Nenhuma informada'}
-    
+
     Metas nutricionais diárias:
     - Calorias: ${nutritionalGoals.calories || 'Não informado'} kcal
     - Proteínas: ${nutritionalGoals.protein || 'Não informado'} g
     - Carboidratos: ${nutritionalGoals.carbs || 'Não informado'} g
     - Gorduras: ${nutritionalGoals.fat || 'Não informado'} g
-    
-    Por favor, crie um plano alimentar para um dia com:
+
+    Gere um plano alimentar para um dia com:
     1. 3 refeições principais (café da manhã, almoço, jantar)
     2. 2 lanches
-    3. Detalhes nutricionais para cada refeição
-    4. Sugestões de alimentos específicos
-    5. Quantidades em gramas ou porções
-    
-    Formate a resposta como um plano alimentar estruturado, fácil de ler e seguir.
+    3. Detalhes nutricionais para cada alimento
+    4. Quantidades em gramas ou porções
+
+    Responda APENAS com JSON válido seguindo este formato:
+    {
+      "meals": [
+        {
+          "name": "Nome da refeição",
+          "items": [
+            {
+              "name": "Alimento",
+              "quantity": 0,
+              "calories": 0,
+              "protein": 0,
+              "carbs": 0,
+              "fat": 0
+            }
+          ]
+        }
+      ]
+    }
+    Não inclua nenhum texto fora do JSON.
   `;
 
   return await callOpenRouter(prompt, AI_MODELS.nutrition, 1500);

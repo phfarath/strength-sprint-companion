@@ -15,7 +15,15 @@ const mockUser = {
 };
 const mockPrisma = {
   $queryRaw: jest.fn().mockResolvedValue([{ test: 1 }]),
-  user: { findUnique: jest.fn().mockResolvedValue(mockUser) }
+  user: { findUnique: jest.fn().mockResolvedValue(mockUser) },
+  mealPlan: {
+    create: jest.fn().mockResolvedValue({ id: 1 }),
+    findUnique: jest.fn().mockResolvedValue({ id: 1, name: 'Plano Alimentar IA', date: '2024-01-01', meals: [] })
+  },
+  meal: { create: jest.fn().mockResolvedValue({ id: 1 }) },
+  food: { create: jest.fn().mockResolvedValue({ id: 1 }) },
+  mealFood: { create: jest.fn().mockResolvedValue({}) },
+  $transaction: jest.fn(async (cb) => cb(mockPrisma))
 };
 
 jest.mock('@prisma/client', () => ({
@@ -25,7 +33,20 @@ jest.mock('@prisma/client', () => ({
 // Mock AI service functions
 jest.mock('../services/aiService', () => ({
   generateWorkoutPlan: jest.fn().mockResolvedValue({ plan: 'workout' }),
-  generateMealPlan: jest.fn().mockResolvedValue({ plan: 'meal' }),
+  generateMealPlan: jest
+    .fn()
+    .mockResolvedValue(
+      JSON.stringify({
+        meals: [
+          {
+            name: 'Café da manhã',
+            items: [
+              { name: 'Ovos', quantity: 2, calories: 150, protein: 12, carbs: 1, fat: 10 }
+            ]
+          }
+        ]
+      })
+    ),
   generateHealthAssessment: jest.fn().mockResolvedValue({ status: 'ok' }),
   analyzeHealthDocument: jest.fn().mockResolvedValue({ summary: 'analysis' }),
   answerQuestion: jest.fn().mockResolvedValue('answer')
