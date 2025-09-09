@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 
 const MealPlanning: React.FC = () => {
-  const { mealPlans, addMealPlan, updateMealPlan, deleteMealPlan } = useAppContext();
+  const { mealPlans, updateMealPlan, deleteMealPlan } = useAppContext();
   const { toast } = useToast();
   const [editingMealPlan, setEditingMealPlan] = useState<MealPlan | null>(null);
   const [foodModalOpen, setFoodModalOpen] = useState(false);
@@ -78,17 +78,8 @@ const MealPlanning: React.FC = () => {
     return list.filter(f => (f?.name || '').toLowerCase().includes(q));
   }, [foods, searchQuery]);
 
-  const handleCreateMealPlan = async (mealPlan: Omit<MealPlan, 'id'>) => {
-    try {
-      await addMealPlan(mealPlan);
-      setActiveTab('view');
-    } catch (error) {
-      toast({
-        title: "Erro ao criar plano",
-        description: "Não foi possível salvar o plano alimentar no servidor.",
-        variant: "destructive"
-      });
-    }
+  const handleCreateMealPlan = (mealPlan: MealPlan) => {
+    setActiveTab('view');
   };
 
   const handleUpdateMealPlan = async (mealPlan: MealPlan) => {

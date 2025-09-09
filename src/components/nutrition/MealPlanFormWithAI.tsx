@@ -11,15 +11,15 @@ import { motion } from 'framer-motion';
 import MealForm from './MealForm';
 
 interface MealPlanFormWithAIProps {
-  onSubmit: (mealPlan: Omit<MealPlan, 'id'> | MealPlan) => void;
+  onSubmit?: (mealPlan: MealPlan) => void;
   initialMealPlan?: MealPlan;
 }
 
-const MealPlanFormWithAI: React.FC<MealPlanFormWithAIProps> = ({ 
-  onSubmit, 
+const MealPlanFormWithAI: React.FC<MealPlanFormWithAIProps> = ({
+  onSubmit,
   initialMealPlan
 }) => {
-  const { generateAIMealPlan, user } = useAppContext();
+  const { generateAIMealPlan, user, addMealPlan } = useAppContext();
   const { toast } = useToast();
   
   const [name, setName] = useState(initialMealPlan?.name || '');
@@ -47,7 +47,7 @@ const MealPlanFormWithAI: React.FC<MealPlanFormWithAIProps> = ({
     setMeals(meals.map((m, i) => i === index ? meal : m));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const mealPlan = {
       id: initialMealPlan?.id,
@@ -57,7 +57,22 @@ const MealPlanFormWithAI: React.FC<MealPlanFormWithAIProps> = ({
       isPublic,
       meals
     };
-    onSubmit(mealPlan);
+
+    try {
+      if (initialMealPlan) {
+        onSubmit && onSubmit(mealPlan as MealPlan);
+      } else {
+        const createdPlan = await addMealPlan(mealPlan as Omit<MealPlan, 'id'>);
+        onSubmit && onSubmit(createdPlan);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar plano alimentar:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar o plano alimentar.",
+        variant: "destructive"
+      });
+    }
   };
 
   // Função para gerar plano alimentar com IA
@@ -77,16 +92,39 @@ const MealPlanFormWithAI: React.FC<MealPlanFormWithAIProps> = ({
       
       // Chamar a IA para gerar o plano
       const response = await generateAIMealPlan({ userData, nutritionalGoals });
-      
-      // Aqui você pode processar a resposta da IA e atualizar o formulário
-      // Por enquanto, vamos mostrar a resposta em um toast
-      toast({
-        title: "Plano gerado com IA",
-        description: "O plano alimentar foi gerado com sucesso. Verifique a resposta da IA.",
-      });
-      
-      // Em uma implementação completa, você processaria a resposta da IA
-      // e atualizaria os campos do formulário com base nela
+
+      let aiPlan: any = response.data?.mealPlan ?? response.data;
+      if (typeof aiPlan === 'string') {
+        try {
+          aiPlan = JSON.parse(aiPlan);
+        } catch (err) {
+          console.error('Erro ao analisar resposta da IA:', err);
+          throw new Error('Resposta da IA em formato inválido');
+        }
+      }
+
+      if (aiPlan) {
+        if (aiPlan.name) setName(aiPlan.name);
+        if (aiPlan.date) setDate(aiPlan.date);
+        if (Array.isArray(aiPlan.meals)) {
+          const formattedMeals: Meal[] = aiPlan.meals.map((m: any, index: number) => ({
+            id: m.id || `ai-${index}-${Date.now()}`,
+            name: m.name || '',
+            time: m.time || '',
+            foods: (m.foods || []).map((f: any) => ({
+              foodId: Number(f.foodId ?? f.food?.id ?? 0),
+              servings: f.servings ?? 1,
+              food: f.food
+            }))
+          }));
+          setMeals(formattedMeals);
+        }
+
+        toast({
+          title: "Plano gerado com IA",
+          description: "Revise o plano gerado antes de salvar.",
+        });
+      }
     } catch (error) {
       console.error('Erro ao gerar plano com IA:', error);
       toast({
