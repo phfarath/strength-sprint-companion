@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Layout from '@/components/layout/Layout';
+import PageHeader from '@/components/layout/PageHeader';
 import { useAppContext } from '@/context/AppContext';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -258,14 +259,9 @@ const MealPlanning: React.FC = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="container mx-auto px-4 py-6 max-w-7xl"
+        className="space-y-6"
       >
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Planejamento Alimentar</h1>
-          <p className="text-gray-600">
-            Crie e gerencie seus planos de refei√ß√£o para alcan√ßar suas metas nutricionais.
-          </p>
-        </div>
+        <PageHeader title="Planejamento Alimentar" description="Crie e gerencie seus planos de refeiÁ„o para alcanÁar suas metas nutricionais." icon={UtensilsCrossed} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Vers√£o mobile - dropdown */}
@@ -705,3 +701,6 @@ const MealPlanning: React.FC = () => {
 };
 
 export default MealPlanning;
+
+
+

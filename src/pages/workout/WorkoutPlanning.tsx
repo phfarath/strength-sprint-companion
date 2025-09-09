@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
+import PageHeader from '@/components/layout/PageHeader';
 import { useAppContext } from '@/context/AppContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -207,14 +208,13 @@ const WorkoutPlanning = () => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="container mx-auto px-4 py-6 max-w-7xl"
+        className="space-y-6"
       >
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Planejamento de Treinos</h1>
-          <p className="text-gray-600">
-            Organize seus treinos semanais e acompanhe seu progresso.
-          </p>
-        </div>
+        <PageHeader
+          title="Planejamento de Treinos"
+          description="Organize seus treinos semanais e acompanhe seu progresso."
+          icon={Dumbbell}
+        />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Versão mobile - dropdown */}
