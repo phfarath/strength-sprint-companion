@@ -95,6 +95,15 @@ export interface User {
   weight?: number;
   height?: number;
   birthdate?: string;
+  gender?: string;
+  goal?: string;
+  fitnessLevel?: string;
+  availableDays?: number;
+  equipment?: string;
+  injuries?: string;
+  workoutPreferences?: string;
+  dietaryRestrictions?: string;
+  foodPreferences?: string;
 }
 
 export type DayOfWeek = 'domingo' | 'segunda' | 'terça' | 'quarta' | 'quinta' | 'sexta' | 'sábado';

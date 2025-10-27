@@ -7,6 +7,7 @@ const auth = require('../middleware/auth'); // Importe o middleware de autentica
 const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const crypto = require('crypto');
+const { getUserActivitySummary } = require('../services/activitySummaryService');
 
 const prisma = new PrismaClient();
 
@@ -152,6 +153,15 @@ router.get('/profile', auth, async (req, res) => {
       weight: user.weight,
       height: user.height,
       birthdate: user.birthdate,
+      gender: user.gender,
+      fitnessLevel: user.fitnessLevel,
+      goal: user.goal,
+      availableDays: user.availableDays,
+      equipment: user.equipment,
+      injuries: user.injuries,
+      workoutPreferences: user.workoutPreferences,
+      dietaryRestrictions: user.dietaryRestrictions,
+      foodPreferences: user.foodPreferences,
       nutritionGoals: user.nutritionGoals ? {
         calories: user.nutritionGoals.calories,
         protein: user.nutritionGoals.protein,
@@ -169,7 +179,21 @@ router.get('/profile', auth, async (req, res) => {
 router.put('/profile', auth, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, weight, height, birthdate } = req.body;
+    const { 
+      name, 
+      weight, 
+      height, 
+      birthdate,
+      gender,
+      fitnessLevel,
+      goal,
+      availableDays,
+      equipment,
+      injuries,
+      workoutPreferences,
+      dietaryRestrictions,
+      foodPreferences
+    } = req.body;
     
     console.log("Dados recebidos para atualização:", req.body);
     console.log("ID do usuário:", userId);
@@ -184,14 +208,27 @@ router.put('/profile', auth, async (req, res) => {
     }
     
     // Converter tipos apropriadamente
+    const updateData = {
+      name,
+      weight: weight ? parseFloat(weight) : null,
+      height: height ? parseFloat(height) : null,
+      birthdate: birthdate || null,
+    };
+
+    // Add optional fields only if provided
+    if (gender !== undefined) updateData.gender = gender;
+    if (fitnessLevel !== undefined) updateData.fitnessLevel = fitnessLevel;
+    if (goal !== undefined) updateData.goal = goal;
+    if (availableDays !== undefined) updateData.availableDays = availableDays ? parseInt(availableDays) : null;
+    if (equipment !== undefined) updateData.equipment = equipment;
+    if (injuries !== undefined) updateData.injuries = injuries;
+    if (workoutPreferences !== undefined) updateData.workoutPreferences = workoutPreferences;
+    if (dietaryRestrictions !== undefined) updateData.dietaryRestrictions = dietaryRestrictions;
+    if (foodPreferences !== undefined) updateData.foodPreferences = foodPreferences;
+
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(userId) },
-      data: {
-        name,
-        weight: weight ? parseFloat(weight) : null,
-        height: height ? parseFloat(height) : null,
-        birthdate: birthdate || null
-      }
+      data: updateData
     });
     
     console.log("Usuário atualizado com sucesso:", updatedUser);
@@ -203,6 +240,15 @@ router.put('/profile', auth, async (req, res) => {
       weight: updatedUser.weight,
       height: updatedUser.height,
       birthdate: updatedUser.birthdate,
+      gender: updatedUser.gender,
+      fitnessLevel: updatedUser.fitnessLevel,
+      goal: updatedUser.goal,
+      availableDays: updatedUser.availableDays,
+      equipment: updatedUser.equipment,
+      injuries: updatedUser.injuries,
+      workoutPreferences: updatedUser.workoutPreferences,
+      dietaryRestrictions: updatedUser.dietaryRestrictions,
+      foodPreferences: updatedUser.foodPreferences,
     });
   } catch (error) {
     console.error('Erro ao atualizar perfil:', error.message);
@@ -329,6 +375,32 @@ router.get('/feedback', auth, async (req, res) => {
   } catch (error) {
     console.error('Erro ao buscar feedbacks:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/users/:id/activity-summary - Resumo das atividades do usuário
+router.get('/:id/activity-summary', auth, async (req, res) => {
+  try {
+    const requestedId = parseInt(req.params.id, 10);
+    const authenticatedId = parseInt(req.user?.id, 10);
+
+    if (Number.isNaN(requestedId)) {
+      return res.status(400).json({ message: 'ID de usuário inválido' });
+    }
+
+    if (requestedId !== authenticatedId) {
+      return res.status(403).json({ message: 'Acesso negado' });
+    }
+
+    const daysParam = req.query.days ? parseInt(req.query.days, 10) : null;
+    const days = daysParam && daysParam > 0 && daysParam <= 60 ? daysParam : 14;
+
+    const summary = await getUserActivitySummary(prisma, authenticatedId, { days });
+
+    res.json(summary);
+  } catch (error) {
+    console.error('Erro ao obter resumo de atividades:', error);
+    res.status(500).json({ message: 'Erro ao obter resumo de atividades' });
   }
 });
 

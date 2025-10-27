@@ -60,28 +60,64 @@ async function callOpenRouter(
 /**
  * Gera um plano de treino personalizado com base nos dados do usuário
  * @param {Object} userData - Dados do usuário
+ * @param {Object} options - Opções adicionais (activitySummary, etc.)
  * @returns {Promise<string>} - O plano de treino gerado
  */
-async function generateWorkoutPlan(userData) {
+async function generateWorkoutPlan(userData, options = {}) {
+  const { activitySummary } = options;
+
+  // Build activity context
+  let activityContext = '';
+  if (activitySummary && activitySummary.workouts) {
+    const { workouts, feedback } = activitySummary;
+    activityContext = `
+Histórico Recente do Usuário (últimos ${activitySummary.range?.days || 14} dias):
+
+Treinos:
+- Total de sessões: ${workouts.summary.totalSessions}
+- Sessões completadas: ${workouts.summary.completedSessions}
+- Taxa de conclusão: ${workouts.summary.completionRate}%
+${workouts.sessions.length > 0 ? `- Treinos recentes: ${workouts.sessions.map(s => s.workoutPlan?.name || 'Sem plano').slice(0, 5).join(', ')}` : ''}
+
+Feedback Anterior:
+${feedback.recent.length > 0 ? feedback.recent.filter(f => f.planType === 'workout' || f.planContext.includes('workout')).slice(0, 3).map(f => 
+  `- Avaliação: ${f.rating}/5 estrelas${f.feedbackText ? ` - Comentário: "${f.feedbackText}"` : ''}`
+).join('\n') : '- Nenhum feedback anterior'}
+
+IMPORTANTE: Considere o histórico ao criar o plano:
+- Se o usuário tem alta taxa de conclusão (>80%), você pode aumentar ligeiramente a dificuldade
+- Se o usuário tem baixa taxa de conclusão (<50%), mantenha ou reduza a intensidade
+- Se há feedback negativo sobre exercícios específicos, EVITE incluí-los no novo plano
+- Se há feedback positivo, mantenha exercícios e estruturas similares
+`;
+  }
+
+  const customRequestSection = userData.customRequest ? `
+Solicitação Específica do Usuário:
+${userData.customRequest}
+` : '';
+
   const prompt = `
     Com base nas seguintes informações do usuário, crie um plano de treino personalizado para uma semana:
 
-    Informações do usuário:
+    Informações do Perfil do Usuário:
+    - Nome: ${userData.name || 'Não informado'}
     - Idade: ${userData.age || 'Não informada'} anos
     - Peso: ${userData.weight || 'Não informado'} kg
     - Altura: ${userData.height || 'Não informada'} cm
+    - Gênero: ${userData.gender || 'Não informado'}
     - Nível de experiência: ${userData.fitnessLevel || 'Não informado'}
     - Objetivo: ${userData.goal || 'Não informado'}
     - Dias disponíveis para treinar: ${userData.availableDays || 'Não informado'} dias por semana
     - Equipamentos disponíveis: ${userData.equipment || 'Não informado'}
     - Lesões ou limitações: ${userData.injuries || 'Nenhuma informada'}
     - Preferências de treino: ${userData.preferences || 'Nenhuma informada'}
-
+${activityContext}${customRequestSection}
     Por favor, crie um plano de treino para uma semana com os seguintes detalhes:
     1. Divisão de treino por dias (ex: Segunda - Pernas, Terça - Peito, etc.)
     2. Exercícios específicos para cada dia
     3. Número de séries e repetições para cada exercício
-    4. Descanso entre séries
+    4. Descanso entre séries em segundos
     5. Observações importantes
 
     A resposta deve ser estritamente um JSON com o formato:
@@ -90,8 +126,9 @@ async function generateWorkoutPlan(userData) {
         {
           "day": "Segunda",
           "exercises": [
-            { "name": "Agachamento", "sets": 3, "reps": 12, "rest": 60 }
-          ]
+            { "name": "Agachamento", "sets": 3, "reps": 12, "rest": 60, "muscleGroup": "Pernas" }
+          ],
+          "notes": "Observações sobre o treino do dia"
         }
       ]
     }
@@ -106,20 +143,51 @@ async function generateWorkoutPlan(userData) {
  * Gera um plano alimentar personalizado com base nos dados do usuário
  * @param {Object} userData - Dados do usuário
  * @param {Object} nutritionalGoals - Metas nutricionais do usuário
+ * @param {Object} options - Opções adicionais (activitySummary, etc.)
  * @returns {Promise<string>} - O plano alimentar gerado
  */
-async function generateMealPlan(userData, nutritionalGoals) {
+async function generateMealPlan(userData, nutritionalGoals, options = {}) {
+  const { activitySummary } = options;
+
+  let activityContext = '';
+  if (activitySummary && activitySummary.nutrition) {
+    const { nutrition, feedback } = activitySummary;
+    activityContext = `
+Histórico Nutricional Recente (últimos ${activitySummary.range?.days || 14} dias):
+- Dias acompanhados: ${nutrition.summary.trackedDays}
+- Calorias médias: ${nutrition.summary.averageCalories} kcal
+${nutrition.days.length > 0 ? `- Consumo recente: ${nutrition.days.slice(0, 3).map(day => `${new Date(day.date).toLocaleDateString('pt-BR')} (${day.totals.calories} kcal)`).join(', ')}` : ''}
+
+Feedback de Planos Alimentares:
+${feedback.recent.length > 0 ? feedback.recent.filter(f => f.planType === 'nutrition' || f.planContext.includes('nutrition')).slice(0, 3).map(f => 
+  `- Avaliação: ${f.rating}/5${f.feedbackText ? ` - Comentário: "${f.feedbackText}"` : ''}`
+).join('\n') : '- Nenhum feedback registrado'}
+
+Ajustes desejados:
+- Se as calorias médias reais estão abaixo da meta, aumente ligeiramente o aporte calórico.
+- Evite itens que receberam feedback negativo.
+`;
+  }
+
+  const customRequestSection = userData.customRequest ? `
+Solicitação Específica do Usuário:
+${userData.customRequest}
+` : '';
+
   const prompt = `
     Com base nas seguintes informações do usuário, crie um plano alimentar personalizado para um dia:
     
     Informações do usuário:
+    - Nome: ${userData.name || 'Não informado'}
     - Idade: ${userData.age || 'Não informada'} anos
     - Peso: ${userData.weight || 'Não informado'} kg
     - Altura: ${userData.height || 'Não informada'} cm
+    - Gênero: ${userData.gender || 'Não informado'}
     - Objetivo: ${userData.goal || 'Não informado'}
+    - Nível de atividade/treino: ${userData.fitnessLevel || 'Não informado'}
     - Restrições alimentares: ${userData.dietaryRestrictions || 'Nenhuma informada'}
     - Preferências alimentares: ${userData.foodPreferences || 'Nenhuma informada'}
-    
+${activityContext}${customRequestSection}
     Metas nutricionais diárias:
     - Calorias: ${nutritionalGoals.calories || 'Não informado'} kcal
     - Proteínas: ${nutritionalGoals.protein || 'Não informado'} g
@@ -137,6 +205,7 @@ async function generateMealPlan(userData, nutritionalGoals) {
       "meals": [
         {
           "name": "Nome da refeição",
+          "time": "Horário sugerido",
           "items": [
             {
               "name": "Alimento",
@@ -146,9 +215,16 @@ async function generateMealPlan(userData, nutritionalGoals) {
               "carbs": 0,
               "fat": 0
             }
-          ]
+          ],
+          "notes": "Orientações adicionais da refeição"
         }
-      ]
+      ],
+      "dailySummary": {
+        "calories": 0,
+        "protein": 0,
+        "carbs": 0,
+        "fat": 0
+      }
     }
     Não inclua nenhum texto fora do JSON.
   `;

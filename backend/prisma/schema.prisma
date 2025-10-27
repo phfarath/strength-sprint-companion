@@ -17,6 +17,17 @@ model User {
   birthdate     String?
   created_at    DateTime @default(now())
 
+  // Extended profile fields for AI personalization
+  gender                String? // 'male', 'female', 'other', 'prefer-not-to-say'
+  fitnessLevel          String? // 'beginner', 'intermediate', 'advanced'
+  goal                  String? // 'lose-weight', 'gain-muscle', 'improve-health', 'increase-strength', 'improve-endurance'
+  availableDays         Int?    // days per week available for training
+  equipment             String? // 'none', 'home', 'gym', 'full-gym'
+  injuries              String? @db.Text // JSON or text describing injuries/limitations
+  workoutPreferences    String? @db.Text // JSON or text describing workout preferences
+  dietaryRestrictions   String? @db.Text // JSON or text describing dietary restrictions
+  foodPreferences       String? @db.Text // JSON or text describing food preferences
+
   // Relacionamentos
   nutritionGoals  NutritionGoals?
   deviceData      DeviceData[]
@@ -29,6 +40,7 @@ model User {
   workoutPlans    WorkoutPlan[]
   workoutSessions WorkoutSession[]
   exercises       Exercise[] // ← ADICIONAR ESTA LINHA
+  aiFeedback      AIFeedback[]
 
   // Back-relations for settings & privacy models
   settings         UserSettings?
@@ -266,6 +278,22 @@ model MealFood {
   food     Food  @relation(fields: [foodId], references: [id])
 
   @@map("meal_foods")
+}
+
+model AIFeedback {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  planContext  String
+  planType     String?
+  planContent  String?  @db.Text
+  rating       Int
+  feedbackText String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, planContext])
+  @@map("ai_feedback")
 }
 
 // ==============================
