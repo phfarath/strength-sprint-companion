@@ -9,8 +9,43 @@ const {
   analyzeHealthDocument,
   answerQuestion
 } = require('../services/aiService');
+const { getUserActivitySummary } = require('../services/activitySummaryService');
 
 const prisma = new PrismaClient();
+
+const parseListField = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+      if (typeof parsed === 'string') {
+        return [parsed];
+      }
+      if (parsed && typeof parsed === 'object') {
+        return Object.values(parsed).map((item) => String(item));
+      }
+    } catch (error) {
+      // Se não for JSON válido, tenta dividir por vírgula
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  return [String(value)];
+};
+
+const formatListField = (value) => {
+  const list = parseListField(value);
+  if (!list.length) return null;
+  return list.join(', ');
+};
 
 /**
  * POST /api/ai/workout-plans
@@ -18,36 +53,56 @@ const prisma = new PrismaClient();
  */
 router.post('/workout-plans', auth, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = parseInt(req.user.id, 10);
 
     // Buscar dados do usuário
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(userId) },
+      where: { id: userId },
       include: {
-        nutritionGoals: true
-      }
+        nutritionGoals: true,
+      },
     });
 
     if (!user) {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
 
-    // Preparar dados para a IA
+    const age = user.birthdate
+      ? Math.floor(
+          (new Date() - new Date(user.birthdate)) /
+            (365.25 * 24 * 60 * 60 * 1000)
+        )
+      : null;
+
     const userData = {
+      id: user.id,
       name: user.name,
-      age: user.birthdate
-        ? Math.floor(
-            (new Date() - new Date(user.birthdate)) /
-              (365.25 * 24 * 60 * 60 * 1000)
-          )
-        : null,
+      age,
       weight: user.weight,
       height: user.height,
-      // Adicione mais campos conforme necessário
+      gender: user.gender,
+      goal: user.goal,
+      fitnessLevel: user.fitnessLevel,
+      availableDays: user.availableDays,
+      equipment: user.equipment,
+      injuries: formatListField(user.injuries) || 'Nenhuma informada',
+      preferences: formatListField(user.workoutPreferences) || 'Nenhuma informada',
+      dietaryRestrictions: formatListField(user.dietaryRestrictions),
+      foodPreferences: formatListField(user.foodPreferences),
+      customRequest:
+        req.body?.userData?.customRequest ||
+        req.body?.customRequest ||
+        null,
     };
 
+    const activitySummary = await getUserActivitySummary(prisma, userId, {
+      days: req.body?.activitySummary?.range?.days || 14,
+    });
+
     // Gerar plano de treino com a IA
-    const workoutPlanText = await generateWorkoutPlan(userData);
+    const workoutPlanText = await generateWorkoutPlan(userData, {
+      activitySummary,
+    });
 
     let planData;
     try {
@@ -75,8 +130,17 @@ router.post('/workout-plans', auth, async (req, res) => {
         thursday: 4,
         friday: 5,
         saturday: 6,
+        domingo: 0,
+        segunda: 1,
+        terça: 2,
+        terca: 2,
+        quarta: 3,
+        quinta: 4,
+        sexta: 5,
+        sábado: 6,
+        sabado: 6,
       };
-      return map[day?.toLowerCase()] ?? 0;
+      return map[day?.toLowerCase?.()] ?? 0;
     };
 
     const createdPlans = [];
@@ -89,7 +153,10 @@ router.post('/workout-plans', auth, async (req, res) => {
           const ex = dayPlan.exercises[i];
 
           let exercise = await prisma.exercise.findFirst({
-            where: { name: ex.name }
+            where: {
+              name: ex.name,
+              user_id: userId,
+            },
           });
 
           if (!exercise) {
@@ -97,8 +164,8 @@ router.post('/workout-plans', auth, async (req, res) => {
               data: {
                 name: ex.name,
                 muscle_group: ex.muscleGroup || 'unknown',
-                user_id: parseInt(userId),
-              }
+                user_id: userId,
+              },
             });
           }
 
@@ -118,7 +185,8 @@ router.post('/workout-plans', auth, async (req, res) => {
           name: dayPlan.day || 'Treino',
           day_of_week: dayToIndex(dayPlan.day),
           notes: dayPlan.notes || null,
-          user_id: parseInt(userId),
+          user_id: userId,
+          raw_response: JSON.stringify(planData.plan ?? []),
           exercises: { create: exercisesData },
         },
         include: {
@@ -132,6 +200,7 @@ router.post('/workout-plans', auth, async (req, res) => {
     res.json({
       success: true,
       workoutPlan: createdPlans,
+      activitySummary,
     });
   } catch (error) {
     console.error('Erro ao gerar plano de treino:', error);
@@ -149,11 +218,11 @@ router.post('/workout-plans', auth, async (req, res) => {
  */
 router.post('/meal-plans', auth, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = parseInt(req.user.id, 10);
     
     // Buscar dados do usuário e metas nutricionais
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(userId) },
+      where: { id: userId },
       include: {
         nutritionGoals: true
       }
@@ -163,19 +232,38 @@ router.post('/meal-plans', auth, async (req, res) => {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
     
+    const age = user.birthdate ? Math.floor((new Date() - new Date(user.birthdate)) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+    
     // Preparar dados para a IA
     const userData = {
+      id: user.id,
       name: user.name,
-      age: user.birthdate ? Math.floor((new Date() - new Date(user.birthdate)) / (365.25 * 24 * 60 * 60 * 1000)) : null,
+      age,
       weight: user.weight,
       height: user.height,
-      // Adicione mais campos conforme necessário
+      gender: user.gender,
+      goal: user.goal,
+      fitnessLevel: user.fitnessLevel,
+      dietaryRestrictions: formatListField(user.dietaryRestrictions) || 'Nenhuma informada',
+      foodPreferences: formatListField(user.foodPreferences) || 'Nenhuma informada',
+      injuries: formatListField(user.injuries),
+      workoutPreferences: formatListField(user.workoutPreferences),
+      customRequest:
+        req.body?.userData?.customRequest ||
+        req.body?.customRequest ||
+        null,
     };
     
-    const nutritionalGoals = user.nutritionGoals || {};
+    const nutritionalGoals = req.body?.nutritionalGoals || user.nutritionGoals || {};
+
+    const activitySummary = await getUserActivitySummary(prisma, userId, {
+      days: req.body?.activitySummary?.range?.days || 14,
+    });
 
     // Gerar plano alimentar com a IA
-    const aiResponse = await generateMealPlan(userData, nutritionalGoals);
+    const aiResponse = await generateMealPlan(userData, nutritionalGoals, {
+      activitySummary,
+    });
 
     let parsedPlan;
     try {
@@ -193,7 +281,8 @@ router.post('/meal-plans', auth, async (req, res) => {
         data: {
           name: 'Plano Alimentar IA',
           date: new Date().toISOString().split('T')[0],
-          userId: parseInt(userId)
+          userId,
+          raw_response: JSON.stringify(parsedPlan)
         }
       });
 
@@ -201,6 +290,7 @@ router.post('/meal-plans', auth, async (req, res) => {
         const mealRecord = await tx.meal.create({
           data: {
             name: meal.name,
+            time: meal.time || null,
             mealPlanId: plan.id
           }
         });
@@ -214,7 +304,7 @@ router.post('/meal-plans', auth, async (req, res) => {
               protein: parseFloat(item.protein) || 0,
               carbs: parseFloat(item.carbs) || 0,
               fat: parseFloat(item.fat) || 0,
-              userId: parseInt(userId)
+              userId
             }
           });
 
@@ -244,7 +334,8 @@ router.post('/meal-plans', auth, async (req, res) => {
 
     res.json({
       success: true,
-      mealPlan: storedPlan
+      mealPlan: storedPlan,
+      activitySummary,
     });
   } catch (error) {
     console.error('Erro ao gerar plano alimentar:', error);
@@ -393,6 +484,107 @@ router.post('/chat', auth, async (req, res) => {
       success: false, 
       message: 'Erro ao responder pergunta',
       error: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/ai/feedback
+ * Recebe feedback do usuário sobre planos gerados pela IA
+ */
+router.post('/feedback', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const {
+      planContext,
+      planType,
+      planContent,
+      rating,
+      feedbackText,
+    } = req.body || {};
+
+    if (!planContext) {
+      return res.status(400).json({ message: 'planContext é obrigatório' });
+    }
+
+    const parsedRating = parseInt(rating, 10);
+    if (Number.isNaN(parsedRating) || parsedRating < 1 || parsedRating > 5) {
+      return res.status(400).json({ message: 'rating deve ser um número entre 1 e 5' });
+    }
+
+    let serializedPlanContent = null;
+    if (planContent) {
+      if (typeof planContent === 'string') {
+        serializedPlanContent = planContent.length > 15000 ? planContent.slice(0, 15000) : planContent;
+      } else {
+        const stringified = JSON.stringify(planContent);
+        serializedPlanContent = stringified.length > 15000 ? stringified.slice(0, 15000) : stringified;
+      }
+    }
+
+    const createdFeedback = await prisma.aIFeedback.create({
+      data: {
+        userId,
+        planContext,
+        planType: planType || null,
+        planContent: serializedPlanContent,
+        rating: parsedRating,
+        feedbackText: feedbackText ? feedbackText.trim() : null,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      feedback: {
+        id: createdFeedback.id,
+        planContext: createdFeedback.planContext,
+        planType: createdFeedback.planType,
+        rating: createdFeedback.rating,
+        feedbackText: createdFeedback.feedbackText,
+        createdAt: createdFeedback.createdAt,
+      },
+    });
+  } catch (error) {
+    console.error('Erro ao salvar feedback da IA:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao salvar feedback da IA',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/ai/feedback
+ * Retorna o feedback recente do usuário
+ */
+router.get('/feedback', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const limitParam = parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(limitParam) ? 20 : Math.min(Math.max(limitParam, 1), 50);
+
+    const feedback = await prisma.aIFeedback.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        planContext: true,
+        planType: true,
+        rating: true,
+        feedbackText: true,
+        createdAt: true,
+      },
+    });
+
+    res.json({ success: true, feedback });
+  } catch (error) {
+    console.error('Erro ao recuperar feedback da IA:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao recuperar feedback da IA',
+      error: error.message,
     });
   }
 });

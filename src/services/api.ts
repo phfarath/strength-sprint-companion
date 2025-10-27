@@ -90,6 +90,19 @@ export const apiServices = {
   generateHealthAssessment: (healthData: any) => api.post('/ai/health-assessment', healthData),
   analyzeHealthDocument: (documentData: any) => api.post('/ai/document-analysis', documentData),
   askAIQuestion: (questionData: any) => api.post('/ai/chat', questionData),
+  
+  // AI Feedback
+  submitAIFeedback: (feedbackData: {
+    planContext: string;
+    planType?: string;
+    planContent?: string;
+    rating: number;
+    feedbackText?: string;
+  }) => api.post('/ai/feedback', feedbackData),
+  getAIFeedback: (limit?: number) => api.get('/ai/feedback', { params: { limit } }),
+
+  // Activity Summary
+  getActivitySummary: (userId: number, days?: number) => api.get(`/users/${userId}/activity-summary`, { params: { days } }),
 };
 
 export default api;

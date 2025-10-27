@@ -9,6 +9,7 @@ import { useAppContext } from '@/context/AppContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Apple, Bot, Dumbbell, FileText, Heart, Loader2, MessageCircle, Send, User, ChevronLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { AIFeedbackWidget } from '@/components/ai/AIFeedbackWidget';
 
 interface ChatMessage {
   id: string;
@@ -16,7 +17,122 @@ interface ChatMessage {
   content: string;
   timestamp: Date;
   mode: string;
+  planContent?: any;
+  planContext?: string;
+  planType?: string;
 }
+
+interface ModeResponse {
+  message: string;
+  metadata?: {
+    planContent?: any;
+    planContext?: string;
+    planType?: string;
+  };
+}
+
+const safeStringify = (value: any) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch (error) {
+    return String(value);
+  }
+};
+
+const formatWorkoutPlan = (plan: any): string => {
+  if (!Array.isArray(plan)) {
+    return safeStringify(plan) || 'Não foi possível gerar um plano de treino. Tente novamente.';
+  }
+
+  if (plan.length === 0) {
+    return 'Não há treinos disponíveis para o período solicitado.';
+  }
+
+  return plan
+    .map((day) => {
+      const dayName = day.name || day.day || 'Treino';
+      const exercises = Array.isArray(day.exercises)
+        ? day.exercises
+            .map((exercise: any, index: number) => {
+              const exerciseName = exercise.exercise?.name || exercise.name || `Exercício ${index + 1}`;
+              const sets = exercise.sets ?? exercise.exercise?.sets ?? '-';
+              const reps = exercise.reps ?? exercise.exercise?.reps ?? '-';
+              const restSeconds = exercise.rest_seconds ?? exercise.rest ?? exercise.exercise?.rest_seconds;
+              const rest = restSeconds ? ` | Descanso: ${restSeconds}s` : '';
+              return `• ${exerciseName} — ${sets} séries x ${reps} repetições${rest}`;
+            })
+            .join('\n')
+        : 'Nenhum exercício listado.';
+
+      const notes = day.notes ? `\nObservações: ${day.notes}` : '';
+      return `${dayName}\n${exercises}${notes}`;
+    })
+    .join('\n\n');
+};
+
+const formatMealPlan = (plan: any): string => {
+  if (!plan) {
+    return 'Não foi possível gerar um plano alimentar no momento.';
+  }
+
+  const meals = Array.isArray(plan.meals) ? plan.meals : [];
+
+  if (meals.length === 0) {
+    return safeStringify(plan);
+  }
+
+  const formattedMeals = meals
+    .map((meal: any) => {
+      const mealName = meal.name || 'Refeição';
+      const mealTime = meal.time ? ` (${meal.time})` : '';
+      const normalizedItems = Array.isArray(meal.items)
+        ? meal.items
+        : Array.isArray(meal.mealFoods)
+        ? meal.mealFoods.map((mealFood: any) => {
+            const baseFood = mealFood.food || {};
+            return {
+              name: baseFood.name || 'Alimento',
+              quantity: mealFood.quantity ? `${mealFood.quantity} porção(ões)` : null,
+              calories: baseFood.calories,
+              protein: baseFood.protein,
+              carbs: baseFood.carbs,
+              fat: baseFood.fat,
+            };
+          })
+        : [];
+
+      const items = normalizedItems.length
+        ? normalizedItems
+            .map((item: any) => {
+              const calories = item.calories ? `${item.calories} kcal` : null;
+              const macros = [
+                item.protein ? `${item.protein}g proteína` : null,
+                item.carbs ? `${item.carbs}g carboidratos` : null,
+                item.fat ? `${item.fat}g gorduras` : null,
+              ]
+                .filter(Boolean)
+                .join(', ');
+
+              const details = [calories, macros].filter(Boolean).join(' | ');
+              return `• ${item.name}${item.quantity ? ` — ${item.quantity}` : ''}${details ? ` (${details})` : ''}`;
+            })
+            .join('\n')
+        : 'Nenhum alimento listado.';
+
+      const notes = meal.notes ? `\nObservações: ${meal.notes}` : '';
+
+      return `${mealName}${mealTime}\n${items}${notes}`;
+    })
+    .join('\n\n');
+
+  const summary = plan.dailySummary
+    ? `\n\nResumo diário: ${plan.dailySummary.calories || '-'} kcal — ${plan.dailySummary.protein || '-'}g proteína, ${plan.dailySummary.carbs || '-'}g carboidratos, ${plan.dailySummary.fat || '-'}g gorduras.`
+    : '';
+
+  return `${formattedMeals}${summary}`;
+};
 
 const AIAssistant = () => {
   const {
@@ -26,6 +142,7 @@ const AIAssistant = () => {
     generateAIHealthAssessment,
     analyzeAIHealthDocument,
     askAIQuestion,
+    getActivitySummary,
   } = useAppContext();
   const { toast } = useToast();
 
@@ -35,6 +152,17 @@ const AIAssistant = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [documentContent, setDocumentContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const fetchActivitySummary = async () => {
+    try {
+      if (!user?.id) return null;
+      const response = await getActivitySummary(parseInt(user.id), 14);
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar resumo de atividades:', error);
+      return null;
+    }
+  };
 
   const chatModes = [
     { value: 'chat', label: 'Chat Geral', icon: MessageCircle, description: 'Converse sobre qualquer tópico de fitness e saúde' },
@@ -54,13 +182,24 @@ const AIAssistant = () => {
     scrollToBottom();
   }, [messages]);
 
-  const addMessage = (content: string, type: 'user' | 'ai') => {
+  const addMessage = (
+    content: string,
+    type: 'user' | 'ai',
+    metadata?: {
+      planContent?: any;
+      planContext?: string;
+      planType?: string;
+    }
+  ) => {
     const newMessage: ChatMessage = {
       id: Date.now().toString(),
       type,
       content,
       timestamp: new Date(),
       mode: chatMode,
+      planContent: metadata?.planContent,
+      planContext: metadata?.planContext,
+      planType: metadata?.planType,
     };
     setMessages((prev) => [...prev, newMessage]);
   };
@@ -93,26 +232,34 @@ const AIAssistant = () => {
         addMessage(currentMessage, 'user');
       }
 
-      let response: any;
+      let responseData: ModeResponse | any;
       switch (chatMode) {
         case 'workout':
-          response = await handleWorkoutMode();
+          responseData = await handleWorkoutMode();
           break;
         case 'nutrition':
-          response = await handleNutritionMode();
+          responseData = await handleNutritionMode();
           break;
         case 'health':
-          response = await handleHealthMode();
+          responseData = await handleHealthMode();
           break;
         case 'document':
-          response = await handleDocumentMode();
+          responseData = await handleDocumentMode();
           break;
         default:
-          response = await handleChatMode();
+          responseData = await handleChatMode();
           break;
       }
 
-      addMessage(response, 'ai');
+      // Handle response format
+      if (responseData && typeof responseData === 'object' && 'message' in responseData) {
+        // ModeResponse format with metadata
+        addMessage(responseData.message, 'ai', responseData.metadata);
+      } else {
+        // Simple string response
+        addMessage(responseData || 'Sem resposta', 'ai');
+      }
+
       setCurrentMessage('');
       if (chatMode === 'document') setDocumentContent('');
     } catch (error) {
@@ -128,13 +275,15 @@ const AIAssistant = () => {
   };
 
   // Modo Chat Geral
-  const handleChatMode = async () => {
-    const response = await askAIQuestion(currentMessage);
-    return response.data.answer;
+  const handleChatMode = async (): Promise<ModeResponse> => {
+    const response = await askAIQuestion({ question: currentMessage });
+    return {
+      message: response.data?.answer || 'Não obtive uma resposta. Tente novamente.',
+    };
   };
 
   // Modo Treinos
-  const handleWorkoutMode = async () => {
+  const handleWorkoutMode = async (): Promise<ModeResponse> => {
     const userData = {
       age: user?.birthdate
         ? Math.floor(
@@ -144,21 +293,38 @@ const AIAssistant = () => {
         : null,
       weight: user?.weight,
       height: user?.height,
-      goal: 'melhorar a saúde',
-      fitnessLevel: 'intermediário',
-      availableDays: 5,
-      equipment: 'academia completa',
-      injuries: 'nenhuma',
-      preferences: 'musculação',
+      gender: (user as any)?.gender || 'Não informado',
+      goal: (user as any)?.goal || 'Não informado',
+      fitnessLevel: (user as any)?.fitnessLevel || 'Não informado',
+      availableDays: (user as any)?.availableDays || 'Não informado',
+      equipment: (user as any)?.equipment || 'Não informado',
+      injuries: (user as any)?.injuries || 'Nenhuma informada',
+      preferences: (user as any)?.workoutPreferences || 'Nenhuma informada',
       customRequest: currentMessage,
     } as any;
 
-    const response = await generateAIWorkoutPlan(userData);
-    return response.data.workoutPlan;
+    const activitySummary = await fetchActivitySummary();
+
+    const response = await generateAIWorkoutPlan({
+      userData,
+      activitySummary,
+    });
+
+    const planData = response.data?.workoutPlan;
+    const formattedPlan = formatWorkoutPlan(planData);
+
+    return {
+      message: formattedPlan,
+      metadata: {
+        planContent: planData,
+        planContext: `ai-workout-${Date.now()}`,
+        planType: 'workout',
+      },
+    };
   };
 
   // Modo Nutrição
-  const handleNutritionMode = async () => {
+  const handleNutritionMode = async (): Promise<ModeResponse> => {
     const userData = {
       age: user?.birthdate
         ? Math.floor(
@@ -168,17 +334,32 @@ const AIAssistant = () => {
         : null,
       weight: user?.weight,
       height: user?.height,
-      goal: 'melhorar a saúde',
+      gender: (user as any)?.gender || 'Não informado',
+      goal: (user as any)?.goal || 'Não informado',
+      fitnessLevel: (user as any)?.fitnessLevel || 'Não informado',
+      dietaryRestrictions: (user as any)?.dietaryRestrictions || 'Nenhuma informada',
+      foodPreferences: (user as any)?.foodPreferences || 'Nenhuma informada',
       customRequest: currentMessage,
     } as any;
 
     const nutritionalGoals = (user as any)?.nutritionGoals || {};
-    const response = await generateAIMealPlan({ userData, nutritionalGoals });
-    return response.data.mealPlan;
+    const activitySummary = await fetchActivitySummary();
+
+    const response = await generateAIMealPlan({ userData, nutritionalGoals, activitySummary });
+    const mealPlan = response.data?.mealPlan;
+
+    return {
+      message: formatMealPlan(mealPlan),
+      metadata: {
+        planContent: mealPlan,
+        planContext: `ai-nutrition-${Date.now()}`,
+        planType: 'nutrition',
+      },
+    };
   };
 
   // Modo Saúde
-  const handleHealthMode = async () => {
+  const handleHealthMode = async (): Promise<ModeResponse> => {
     const userData = {
       age: user?.birthdate
         ? Math.floor(
@@ -188,7 +369,9 @@ const AIAssistant = () => {
         : null,
       weight: user?.weight,
       height: user?.height,
-      gender: 'não informado',
+      gender: (user as any)?.gender || 'Não informado',
+      goal: (user as any)?.goal || 'Não informado',
+      fitnessLevel: (user as any)?.fitnessLevel || 'Não informado',
       customRequest: currentMessage,
     } as any;
 
@@ -200,20 +383,27 @@ const AIAssistant = () => {
       bodyFatPercentage: null,
       bloodPressure: 'não informado',
       restingHeartRate: null,
-      activityLevel: 'moderado',
+      activityLevel: (user as any)?.fitnessLevel || 'moderado',
       sleepQuality: 'boa',
       stressLevel: 'moderado',
-      medicalConditions: 'nenhuma',
+      medicalConditions: (user as any)?.injuries || 'nenhuma',
       medications: 'nenhum',
       allergies: 'nenhuma',
     } as any;
 
     const response = await generateAIHealthAssessment({ userData, healthData });
-    return response.data.assessment;
+    return {
+      message: response.data?.assessment || 'Não foi possível gerar uma avaliação de saúde.',
+      metadata: {
+        planContent: response.data?.assessment,
+        planContext: `ai-health-${Date.now()}`,
+        planType: 'health',
+      },
+    };
   };
 
   // Modo Documentos
-  const handleDocumentMode = async () => {
+  const handleDocumentMode = async (): Promise<ModeResponse> => {
     const userData = {
       age: user?.birthdate
         ? Math.floor(
@@ -223,12 +413,14 @@ const AIAssistant = () => {
         : null,
       weight: user?.weight,
       height: user?.height,
-      gender: 'não informado',
-      goal: 'melhorar a saúde',
+      gender: (user as any)?.gender || 'Não informado',
+      goal: (user as any)?.goal || 'Não informado',
     } as any;
 
     const response = await analyzeAIHealthDocument({ documentContent, userData });
-    return response.data.analysis;
+    return {
+      message: response.data?.analysis || 'Não foi possível analisar o documento.',
+    };
   };
 
   const getPlaceholder = () => {
@@ -369,22 +561,29 @@ const AIAssistant = () => {
                         </div>
                       )}
                       <div className={`max-w-[75%] ${message.type === 'user' ? 'order-first' : ''}`}>
-                        <div
-                          className={`rounded-2xl px-6 py-4 ${
-                            message.type === 'user'
-                              ? 'bg-fitness-primary text-white ml-auto'
-                              : 'bg-white border text-gray-900 shadow-sm'
-                          }`}
-                        >
-                          <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
-                        </div>
-                        <div
-                          className={`text-xs text-gray-500 mt-2 px-2 ${
-                            message.type === 'user' ? 'text-right' : 'text-left'
-                          }`}
-                        >
-                          {message.timestamp.toLocaleTimeString()}
-                        </div>
+                       <div
+                         className={`rounded-2xl px-6 py-4 ${
+                           message.type === 'user'
+                             ? 'bg-fitness-primary text-white ml-auto'
+                             : 'bg-white border text-gray-900 shadow-sm'
+                         }`}
+                       >
+                         <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
+                       </div>
+                       <div
+                         className={`text-xs text-gray-500 mt-2 px-2 ${
+                           message.type === 'user' ? 'text-right' : 'text-left'
+                         }`}
+                       >
+                         {message.timestamp.toLocaleTimeString()}
+                       </div>
+                       {message.type === 'ai' && message.planContext && message.planType && (
+                         <AIFeedbackWidget
+                           planContext={message.planContext}
+                           planType={message.planType}
+                           planContent={message.planContent}
+                         />
+                       )}
                       </div>
                       {message.type === 'user' && (
                         <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">

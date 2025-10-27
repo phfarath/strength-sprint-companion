@@ -94,6 +94,19 @@ interface AppContextType {
   analyzeAIHealthDocument: (data: any) => Promise<any>;
   askAIQuestion: (question: string) => Promise<any>;
 
+  // AI Feedback
+  submitAIFeedback: (feedbackData: {
+    planContext: string;
+    planType?: string;
+    planContent?: string;
+    rating: number;
+    feedbackText?: string;
+  }) => Promise<any>;
+  getAIFeedback: (limit?: number) => Promise<any>;
+
+  // Activity Summary
+  getActivitySummary: (userId: number, days?: number) => Promise<any>;
+
   // Settings (Phase 0)
   settings: AppSettings;
   updateSettings: (patch: Partial<AppSettings>) => void;
@@ -899,12 +912,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   generateAIMealPlan: apiServices.generateMealPlan,
   generateAIHealthAssessment: apiServices.generateHealthAssessment,
   analyzeAIHealthDocument: apiServices.analyzeHealthDocument,
-    askAIQuestion: apiServices.askAIQuestion,
+  askAIQuestion: apiServices.askAIQuestion,
 
-    // Settings
-    settings,
-    updateSettings,
-    featureFlags,
+  // AI Feedback
+  submitAIFeedback: apiServices.submitAIFeedback,
+  getAIFeedback: apiServices.getAIFeedback,
+
+  // Activity Summary
+  getActivitySummary: apiServices.getActivitySummary,
+
+  // Settings
+  settings,
+  updateSettings,
+  featureFlags,
 };
 
 return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
