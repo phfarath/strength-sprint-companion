@@ -276,7 +276,7 @@ const AIAssistant = () => {
 
   // Modo Chat Geral
   const handleChatMode = async (): Promise<ModeResponse> => {
-    const response = await askAIQuestion({ question: currentMessage });
+    const response = await askAIQuestion(currentMessage);
     return {
       message: response.data?.answer || 'Não obtive uma resposta. Tente novamente.',
     };
