@@ -41,6 +41,9 @@ model User {
   workoutSessions WorkoutSession[]
   exercises       Exercise[] // ← ADICIONAR ESTA LINHA
   aiFeedback      AIFeedback[]
+  userMemory      UserMemory[]
+  planFeedback    PlanFeedback[]
+  progressLogs    ProgressLog[]
 
   // Back-relations for settings & privacy models
   settings         UserSettings?
@@ -294,6 +297,60 @@ model AIFeedback {
 
   @@index([userId, planContext])
   @@map("ai_feedback")
+}
+
+model UserMemory {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  mode         String   // 'chat', 'workout', 'nutrition', 'health', 'document'
+  userMessage  String   @db.Text
+  aiResponse   String   @db.Text
+  metadata     String?  @db.Text // JSON metadata (planType, planContext, etc.)
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, mode, createdAt])
+  @@map("user_memory")
+}
+
+model PlanFeedback {
+  id               Int      @id @default(autoincrement())
+  userId           Int
+  planType         String   // 'workout', 'nutrition'
+  planReference    String?  // e.g., workoutPlan:123
+  rating           Int?     // 1-5
+  difficultyRating Int?     // 1-5 (too easy to too hard)
+  adherence        Int?     // percentage 0-100
+  notes            String?  @db.Text
+  improvements     String?  @db.Text // What user wants to improve
+  metadata         String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, planType, createdAt])
+  @@map("plan_feedback")
+}
+
+model ProgressLog {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  date         DateTime @db.Date
+  logType      String   // 'workout_completion', 'plateau_detected', 'goal_achieved', 'trend_improvement', 'trend_decline'
+  category     String   // 'workout', 'nutrition', 'weight', 'strength', 'endurance'
+  metric       String?  // specific metric (e.g., 'bench_press_max', 'daily_calories')
+  value        Float?
+  previousValue Float?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, logType, date])
+  @@index([userId, category, date])
+  @@map("progress_logs")
 }
 
 // ==============================

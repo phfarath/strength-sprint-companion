@@ -7,7 +7,10 @@ const {
   generateMealPlan,
   generateHealthAssessment,
   analyzeHealthDocument,
-  answerQuestion
+  answerQuestion,
+  getUserMemory,
+  saveUserMemory,
+  analyzeProgressPatterns
 } = require('../services/aiService');
 const { getUserActivitySummary } = require('../services/activitySummaryService');
 
@@ -99,9 +102,13 @@ router.post('/workout-plans', auth, async (req, res) => {
       days: req.body?.activitySummary?.range?.days || 14,
     });
 
-    // Gerar plano de treino com a IA
+    const planContext = req.body?.planContext || `ai-workout-${Date.now()}`;
+
     const workoutPlanText = await generateWorkoutPlan(userData, {
       activitySummary,
+      userId,
+      planContext,
+      requestSummary: userData.customRequest || req.body?.notes || null,
     });
 
     let planData;
@@ -197,10 +204,23 @@ router.post('/workout-plans', auth, async (req, res) => {
       createdPlans.push(storedPlan);
     }
 
+    try {
+      await saveUserMemory(
+        userId,
+        'workout',
+        userData.customRequest || 'Gerar plano de treino personalizado',
+        JSON.stringify(planData),
+        { planContext, planType: 'workout' }
+      );
+    } catch (memoryError) {
+      console.error('Erro ao salvar memória de treino:', memoryError);
+    }
+
     res.json({
       success: true,
       workoutPlan: createdPlans,
       activitySummary,
+      planContext,
     });
   } catch (error) {
     console.error('Erro ao gerar plano de treino:', error);
@@ -260,9 +280,13 @@ router.post('/meal-plans', auth, async (req, res) => {
       days: req.body?.activitySummary?.range?.days || 14,
     });
 
-    // Gerar plano alimentar com a IA
+    const planContext = req.body?.planContext || `ai-nutrition-${Date.now()}`;
+
     const aiResponse = await generateMealPlan(userData, nutritionalGoals, {
       activitySummary,
+      userId,
+      planContext,
+      requestSummary: userData.customRequest || req.body?.notes || null,
     });
 
     let parsedPlan;
@@ -332,10 +356,23 @@ router.post('/meal-plans', auth, async (req, res) => {
       });
     });
 
+    try {
+      await saveUserMemory(
+        userId,
+        'nutrition',
+        userData.customRequest || 'Gerar plano alimentar personalizado',
+        JSON.stringify(parsedPlan),
+        { planContext, planType: 'nutrition' }
+      );
+    } catch (memoryError) {
+      console.error('Erro ao salvar memória de nutrição:', memoryError);
+    }
+
     res.json({
       success: true,
       mealPlan: storedPlan,
       activitySummary,
+      planContext,
     });
   } catch (error) {
     console.error('Erro ao gerar plano alimentar:', error);
@@ -441,16 +478,15 @@ router.post('/document-analysis', auth, async (req, res) => {
  */
 router.post('/chat', auth, async (req, res) => {
   try {
-    const userId = req.user.id;
-    const { question, context } = req.body; // Pergunta e contexto enviados pelo usuário
+    const userId = parseInt(req.user.id, 10);
+    const { question, context } = req.body;
     
     if (!question) {
       return res.status(400).json({ message: 'Pergunta é obrigatória' });
     }
     
-    // Buscar dados do usuário
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(userId) },
+      where: { id: userId },
       include: {
         nutritionGoals: true
       }
@@ -460,19 +496,26 @@ router.post('/chat', auth, async (req, res) => {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
     
-    // Preparar dados para a IA
     const userData = {
       name: user.name,
       age: user.birthdate ? Math.floor((new Date() - new Date(user.birthdate)) / (365.25 * 24 * 60 * 60 * 1000)) : null,
       weight: user.weight,
       height: user.height,
-      fitnessLevel: 'intermediário', // Valor padrão, ajuste conforme necessário
-      goal: 'melhorar a saúde', // Valor padrão, ajuste conforme necessário
-      // Adicione mais campos conforme necessário
+      fitnessLevel: user.fitnessLevel || 'intermediário',
+      goal: user.goal || 'melhorar a saúde',
     };
+
+    const activitySummary = await getUserActivitySummary(prisma, userId, {
+      days: 14,
+      maxWorkoutSessions: 10,
+      maxNutritionDays: 10,
+      maxFeedbackEntries: 8,
+    });
     
-    // Responder pergunta com a IA
-    const answer = await answerQuestion(question, userData, context);
+    const answer = await answerQuestion(question, userData, context, {
+      userId,
+      activitySummary
+    });
     
     res.json({
       success: true,
@@ -584,6 +627,189 @@ router.get('/feedback', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erro ao recuperar feedback da IA',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/ai/memory
+ * Retorna histórico de conversas do usuário
+ */
+router.get('/memory', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const mode = req.query.mode || null;
+    const limitParam = parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(limitParam) ? 10 : Math.min(Math.max(limitParam, 1), 50);
+
+    const memory = await getUserMemory(userId, mode, limit);
+
+    res.json({ success: true, memory });
+  } catch (error) {
+    console.error('Erro ao recuperar memória:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao recuperar memória',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/ai/plan-feedback
+ * Recebe feedback detalhado sobre um plano
+ */
+router.post('/plan-feedback', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const {
+      planType,
+      planReference,
+      rating,
+      difficultyRating,
+      adherence,
+      notes,
+      improvements,
+      metadata,
+    } = req.body;
+
+    if (!planType || !['workout', 'nutrition'].includes(planType)) {
+      return res.status(400).json({
+        message: 'planType é obrigatório e deve ser "workout" ou "nutrition"',
+      });
+    }
+
+    const serializedMetadata = metadata ? JSON.stringify(metadata) : null;
+
+    const feedback = await prisma.planFeedback.create({
+      data: {
+        userId,
+        planType,
+        planReference: planReference || null,
+        rating: rating ? parseInt(rating, 10) : null,
+        difficultyRating: difficultyRating ? parseInt(difficultyRating, 10) : null,
+        adherence: adherence ? parseInt(adherence, 10) : null,
+        notes: notes || null,
+        improvements: improvements || null,
+        metadata: serializedMetadata,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      feedback,
+    });
+  } catch (error) {
+    console.error('Erro ao salvar feedback do plano:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao salvar feedback do plano',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/ai/plan-feedback
+ * Retorna feedback de planos do usuário
+ */
+router.get('/plan-feedback', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const planType = req.query.planType || null;
+    const limitParam = parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(limitParam) ? 10 : Math.min(Math.max(limitParam, 1), 50);
+
+    const whereClause = planType ? { userId, planType } : { userId };
+
+    const feedback = await prisma.planFeedback.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+
+    res.json({ success: true, feedback });
+  } catch (error) {
+    console.error('Erro ao recuperar feedback do plano:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao recuperar feedback do plano',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/ai/progress-log
+ * Registra um evento de progresso do usuário
+ */
+router.post('/progress-log', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const { date, logType, category, metric, value, previousValue, notes } = req.body;
+
+    if (!logType || !category) {
+      return res.status(400).json({
+        message: 'logType e category são obrigatórios',
+      });
+    }
+
+    const progressLog = await prisma.progressLog.create({
+      data: {
+        userId,
+        date: date ? new Date(date) : new Date(),
+        logType,
+        category,
+        metric: metric || null,
+        value: value ? parseFloat(value) : null,
+        previousValue: previousValue ? parseFloat(previousValue) : null,
+        notes: notes || null,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      progressLog,
+    });
+  } catch (error) {
+    console.error('Erro ao salvar log de progresso:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao salvar log de progresso',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/ai/progress-log
+ * Retorna logs de progresso do usuário
+ */
+router.get('/progress-log', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const category = req.query.category || null;
+    const logType = req.query.logType || null;
+    const limitParam = parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(limitParam) ? 20 : Math.min(Math.max(limitParam, 1), 100);
+
+    const whereClause = { userId };
+    if (category) whereClause.category = category;
+    if (logType) whereClause.logType = logType;
+
+    const logs = await prisma.progressLog.findMany({
+      where: whereClause,
+      orderBy: { date: 'desc' },
+      take: limit,
+    });
+
+    res.json({ success: true, logs });
+  } catch (error) {
+    console.error('Erro ao recuperar logs de progresso:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao recuperar logs de progresso',
       error: error.message,
     });
   }

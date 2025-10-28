@@ -1,5 +1,8 @@
 const axios = require('axios');
+const { PrismaClient } = require('@prisma/client');
 require('dotenv').config();
+
+const prisma = new PrismaClient();
 
 // Configuração do OpenRouter
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
@@ -11,6 +14,66 @@ const AI_MODELS = {
   workout: 'openai/gpt-4o-mini', // Para geração de treinos
   nutrition: 'openai/gpt-oss-120b', // Para geração de planos alimentares
   analysis: 'openai/gpt-4o-mini', // Para análise de documentos
+};
+
+const MEMORY_LIMITS = {
+  byMode: 10,
+  feedback: 6,
+  progress: 8,
+};
+
+const SENSITIVE_PATTERNS = [/senha/gi, /password/gi, /token/gi, /auth[_-]?code/gi];
+
+const sanitizeContextSnippet = (text, maxLength = 220) => {
+  if (!text) return '';
+  const normalized = typeof text === 'string' ? text : JSON.stringify(text);
+  const truncated = normalized.length <= maxLength ? normalized : `${normalized.slice(0, maxLength - 3)}...`;
+  return SENSITIVE_PATTERNS.reduce((value, pattern) => value.replace(pattern, '[dado confidencial]'), truncated);
+};
+
+const truncateText = (text, maxLength = 220) => sanitizeContextSnippet(text, maxLength);
+
+const formatDate = (value) => {
+  try {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  } catch (error) {
+    return '';
+  }
+};
+
+const splitByRecency = (items = [], weighting = 0.7) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { recent: [], historical: [] };
+  }
+
+  const pivot = Math.max(1, Math.ceil(items.length * weighting));
+  return {
+    recent: items.slice(0, pivot),
+    historical: items.slice(pivot),
+  };
+};
+
+const safeJsonParse = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return null;
+  }
+};
+
+const roundValue = (value, precision = 2) => {
+  const numberValue = Number(value || 0);
+  const factor = 10 ** precision;
+  return Math.round(numberValue * factor) / factor;
 };
 
 /**
@@ -64,9 +127,16 @@ async function callOpenRouter(
  * @returns {Promise<string>} - O plano de treino gerado
  */
 async function generateWorkoutPlan(userData, options = {}) {
-  const { activitySummary } = options;
+  const { activitySummary, userId, planContext, requestSummary } = options;
+  const resolvedUserId = userId || userData?.id || null;
 
-  // Build activity context
+  const adaptiveContext = await buildAdaptiveContext({
+    userId: resolvedUserId,
+    mode: 'workout',
+    planType: 'workout',
+    activitySummary,
+  });
+
   let activityContext = '';
   if (activitySummary && activitySummary.workouts) {
     const { workouts, feedback } = activitySummary;
@@ -77,30 +147,36 @@ Treinos:
 - Total de sessões: ${workouts.summary.totalSessions}
 - Sessões completadas: ${workouts.summary.completedSessions}
 - Taxa de conclusão: ${workouts.summary.completionRate}%
-${workouts.sessions.length > 0 ? `- Treinos recentes: ${workouts.sessions.map(s => s.workoutPlan?.name || 'Sem plano').slice(0, 5).join(', ')}` : ''}
+${workouts.sessions.length > 0 ? `- Treinos recentes: ${workouts.sessions.map((s) => s.workoutPlan?.name || 'Sem plano').slice(0, 5).join(', ')}` : ''}
 
-Feedback Anterior:
-${feedback.recent.length > 0 ? feedback.recent.filter(f => f.planType === 'workout' || f.planContext.includes('workout')).slice(0, 3).map(f => 
-  `- Avaliação: ${f.rating}/5 estrelas${f.feedbackText ? ` - Comentário: "${f.feedbackText}"` : ''}`
-).join('\n') : '- Nenhum feedback anterior'}
-
-IMPORTANTE: Considere o histórico ao criar o plano:
-- Se o usuário tem alta taxa de conclusão (>80%), você pode aumentar ligeiramente a dificuldade
-- Se o usuário tem baixa taxa de conclusão (<50%), mantenha ou reduza a intensidade
-- Se há feedback negativo sobre exercícios específicos, EVITE incluí-los no novo plano
-- Se há feedback positivo, mantenha exercícios e estruturas similares
+Feedback agregado:
+${feedback.recent.length > 0 ? feedback.recent
+      .filter((f) => f.planType === 'workout' || f.planContext.includes('workout'))
+      .slice(0, 3)
+      .map(
+        (f) =>
+          `- ${formatDate(f.createdAt)} • ${f.rating}/5${f.feedbackText ? ` — "${truncateText(f.feedbackText, 120)}"` : ''}`
+      )
+      .join('\n')
+    : '- Nenhum feedback registrado recentemente.'}
 `;
   }
 
-  const customRequestSection = userData.customRequest ? `
+  const customRequestSection = userData.customRequest || requestSummary
+    ? `
 Solicitação Específica do Usuário:
-${userData.customRequest}
-` : '';
+${truncateText(userData.customRequest || requestSummary, 280)}
+`
+    : '';
 
   const prompt = `
-    Com base nas seguintes informações do usuário, crie um plano de treino personalizado para uma semana:
+    Você é um treinador inteligente especializado em progressão personalizada. Utilize o contexto histórico para evitar repetição e ajustar a intensidade.
+    ${adaptiveContext}
+    ${activityContext}
+${customRequestSection}
+    Com base nas informações acima, crie um plano de treino personalizado para uma semana:
 
-    Informações do Perfil do Usuário:
+    Perfil do Usuário:
     - Nome: ${userData.name || 'Não informado'}
     - Idade: ${userData.age || 'Não informada'} anos
     - Peso: ${userData.weight || 'Não informado'} kg
@@ -112,15 +188,14 @@ ${userData.customRequest}
     - Equipamentos disponíveis: ${userData.equipment || 'Não informado'}
     - Lesões ou limitações: ${userData.injuries || 'Nenhuma informada'}
     - Preferências de treino: ${userData.preferences || 'Nenhuma informada'}
-${activityContext}${customRequestSection}
-    Por favor, crie um plano de treino para uma semana com os seguintes detalhes:
-    1. Divisão de treino por dias (ex: Segunda - Pernas, Terça - Peito, etc.)
-    2. Exercícios específicos para cada dia
-    3. Número de séries e repetições para cada exercício
-    4. Descanso entre séries em segundos
-    5. Observações importantes
 
-    A resposta deve ser estritamente um JSON com o formato:
+    Regras para o plano:
+    - Use o histórico para detectar platôs: se a adesão caiu, reduza a carga ou simplifique exercícios.
+    - Reforce exercícios com boa adesão e variações que respondam ao feedback positivo.
+    - Se houver queixas de dor ou sobrecarga, ajuste o volume e inclua mobilidade ou recuperação ativa.
+    - Mostre progressão clara (ex.: cargas menores para recomeço ou incrementos graduais).
+
+    Gere apenas JSON válido no formato:
     {
       "plan": [
         {
@@ -130,12 +205,16 @@ ${activityContext}${customRequestSection}
           ],
           "notes": "Observações sobre o treino do dia"
         }
-      ]
+      ],
+      "coachingNotes": "Resumo das adaptações realizadas"
     }
   `;
 
   return await callOpenRouter(prompt, AI_MODELS.workout, 1500, {
-    response_format: { type: 'json_object' }
+    response_format: { type: 'json_object' },
+    metadata: {
+      planContext: planContext || null,
+    },
   });
 }
 
@@ -147,7 +226,15 @@ ${activityContext}${customRequestSection}
  * @returns {Promise<string>} - O plano alimentar gerado
  */
 async function generateMealPlan(userData, nutritionalGoals, options = {}) {
-  const { activitySummary } = options;
+  const { activitySummary, userId, planContext, requestSummary } = options;
+  const resolvedUserId = userId || userData?.id || null;
+
+  const adaptiveContext = await buildAdaptiveContext({
+    userId: resolvedUserId,
+    mode: 'nutrition',
+    planType: 'nutrition',
+    activitySummary,
+  });
 
   let activityContext = '';
   if (activitySummary && activitySummary.nutrition) {
@@ -156,28 +243,36 @@ async function generateMealPlan(userData, nutritionalGoals, options = {}) {
 Histórico Nutricional Recente (últimos ${activitySummary.range?.days || 14} dias):
 - Dias acompanhados: ${nutrition.summary.trackedDays}
 - Calorias médias: ${nutrition.summary.averageCalories} kcal
-${nutrition.days.length > 0 ? `- Consumo recente: ${nutrition.days.slice(0, 3).map(day => `${new Date(day.date).toLocaleDateString('pt-BR')} (${day.totals.calories} kcal)`).join(', ')}` : ''}
+${nutrition.days.length > 0 ? `- Consumo recente: ${nutrition.days.slice(0, 3).map((day) => `${new Date(day.date).toLocaleDateString('pt-BR')} (${day.totals.calories} kcal)`).join(', ')}` : ''}
 
-Feedback de Planos Alimentares:
-${feedback.recent.length > 0 ? feedback.recent.filter(f => f.planType === 'nutrition' || f.planContext.includes('nutrition')).slice(0, 3).map(f => 
-  `- Avaliação: ${f.rating}/5${f.feedbackText ? ` - Comentário: "${f.feedbackText}"` : ''}`
-).join('\n') : '- Nenhum feedback registrado'}
-
-Ajustes desejados:
-- Se as calorias médias reais estão abaixo da meta, aumente ligeiramente o aporte calórico.
-- Evite itens que receberam feedback negativo.
+Feedback agregado:
+${feedback.recent.length > 0 ? feedback.recent
+      .filter((f) => f.planType === 'nutrition' || f.planContext.includes('nutrition'))
+      .slice(0, 3)
+      .map(
+        (f) =>
+          `- ${formatDate(f.createdAt)} • ${f.rating}/5${f.feedbackText ? ` — "${truncateText(f.feedbackText, 120)}"` : ''}`
+      )
+      .join('\n')
+    : '- Nenhum feedback registrado.'}
 `;
   }
 
-  const customRequestSection = userData.customRequest ? `
+  const customRequestSection = userData.customRequest || requestSummary
+    ? `
 Solicitação Específica do Usuário:
-${userData.customRequest}
-` : '';
+${truncateText(userData.customRequest || requestSummary, 280)}
+`
+    : '';
 
   const prompt = `
-    Com base nas seguintes informações do usuário, crie um plano alimentar personalizado para um dia:
+    Você é um nutricionista inteligente especializado em personalização alimentar. Utilize o contexto histórico para evitar repetição e ajustar preferências.
+    ${adaptiveContext}
+    ${activityContext}
+${customRequestSection}
+    Com base nas informações acima, crie um plano alimentar personalizado para um dia:
     
-    Informações do usuário:
+    Perfil do Usuário:
     - Nome: ${userData.name || 'Não informado'}
     - Idade: ${userData.age || 'Não informada'} anos
     - Peso: ${userData.weight || 'Não informado'} kg
@@ -187,12 +282,18 @@ ${userData.customRequest}
     - Nível de atividade/treino: ${userData.fitnessLevel || 'Não informado'}
     - Restrições alimentares: ${userData.dietaryRestrictions || 'Nenhuma informada'}
     - Preferências alimentares: ${userData.foodPreferences || 'Nenhuma informada'}
-${activityContext}${customRequestSection}
+
     Metas nutricionais diárias:
     - Calorias: ${nutritionalGoals.calories || 'Não informado'} kcal
     - Proteínas: ${nutritionalGoals.protein || 'Não informado'} g
     - Carboidratos: ${nutritionalGoals.carbs || 'Não informado'} g
     - Gorduras: ${nutritionalGoals.fat || 'Não informado'} g
+
+    Regras para o plano:
+    - Use o histórico para identificar alimentos bem avaliados e evite aqueles com feedback negativo.
+    - Se o tracking é irregular, sugira refeições simples e fáceis de registrar.
+    - Ajuste calorias com base no consumo médio real vs. meta.
+    - Mantenha variedade mas respeite as preferências do usuário.
     
     Gere um plano alimentar para um dia com:
     1. 3 refeições principais (café da manhã, almoço, jantar)
@@ -224,12 +325,17 @@ ${activityContext}${customRequestSection}
         "protein": 0,
         "carbs": 0,
         "fat": 0
-      }
+      },
+      "coachingNotes": "Resumo das adaptações realizadas"
     }
     Não inclua nenhum texto fora do JSON.
   `;
 
-  return await callOpenRouter(prompt, AI_MODELS.nutrition, 1500);
+  return await callOpenRouter(prompt, AI_MODELS.nutrition, 1500, {
+    metadata: {
+      planContext: planContext || null,
+    },
+  });
 }
 
 /**
@@ -311,13 +417,354 @@ async function analyzeHealthDocument(documentContent, userData) {
 }
 
 /**
- * Responde a perguntas do usuário com contexto
+ * Recupera o histórico de conversas do usuário
+ * @param {number} userId - ID do usuário
+ * @param {string} mode - Modo da conversa (opcional)
+ * @param {number} limit - Limite de mensagens (padrão: 10)
+ * @returns {Promise<Array>} - Array de conversas anteriores
+ */
+async function getUserMemory(userId, mode = null, limit = 10) {
+  try {
+    const whereClause = mode ? { userId, mode } : { userId };
+    
+    const memory = await prisma.userMemory.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        mode: true,
+        userMessage: true,
+        aiResponse: true,
+        metadata: true,
+        createdAt: true,
+      },
+    });
+
+    return memory;
+  } catch (error) {
+    console.error('Erro ao buscar memória do usuário:', error);
+    return [];
+  }
+}
+
+/**
+ * Salva uma conversa na memória do usuário
+ * @param {number} userId - ID do usuário
+ * @param {string} mode - Modo da conversa
+ * @param {string} userMessage - Mensagem do usuário
+ * @param {string} aiResponse - Resposta da IA
+ * @param {Object} metadata - Metadados adicionais (opcional)
+ * @returns {Promise<Object>} - Memória salva
+ */
+async function saveUserMemory(userId, mode, userMessage, aiResponse, metadata = null) {
+  try {
+    const serializedMetadata = metadata ? JSON.stringify(metadata) : null;
+
+    const memory = await prisma.userMemory.create({
+      data: {
+        userId,
+        mode,
+        userMessage: userMessage.substring(0, 5000),
+        aiResponse: aiResponse.substring(0, 5000),
+        metadata: serializedMetadata,
+      },
+    });
+
+    return memory;
+  } catch (error) {
+    console.error('Erro ao salvar memória do usuário:', error);
+    throw error;
+  }
+}
+
+/**
+ * Analisa padrões de progresso do usuário
+ * @param {Object} activitySummary - Resumo de atividades do usuário
+ * @returns {Object} - Insights e padrões detectados
+ */
+function analyzeProgressPatterns(activitySummary) {
+  if (!activitySummary) {
+    return { insights: [], patterns: [], recommendations: [] };
+  }
+
+  const insights = [];
+  const patterns = [];
+  const recommendations = [];
+
+  const { workouts, nutrition, feedback } = activitySummary;
+
+  if (workouts?.summary) {
+    const { completionRate, totalSessions, completedSessions } = workouts.summary;
+    
+    if (completionRate >= 80) {
+      insights.push('Excelente consistência nos treinos');
+      patterns.push('high_adherence');
+    } else if (completionRate < 50) {
+      insights.push('Baixa adesão aos treinos');
+      patterns.push('low_adherence');
+      recommendations.push('Considere treinos mais curtos ou menos frequentes para melhorar a adesão');
+    }
+
+    if (totalSessions < 3 && activitySummary.range?.days >= 7) {
+      insights.push('Frequência de treinos abaixo do ideal');
+      patterns.push('low_frequency');
+      recommendations.push('Tente aumentar gradualmente a frequência de treinos');
+    }
+  }
+
+  if (nutrition?.summary) {
+    const { trackedDays, averageCalories } = nutrition.summary;
+    
+    if (trackedDays < 5 && activitySummary.range?.days >= 14) {
+      insights.push('Acompanhamento nutricional inconsistente');
+      patterns.push('irregular_nutrition_tracking');
+      recommendations.push('Tente registrar sua alimentação diariamente para melhores resultados');
+    }
+
+    if (averageCalories > 0) {
+      insights.push(`Média de ${averageCalories} kcal/dia registradas`);
+    }
+  }
+
+  if (feedback?.averageRating) {
+    if (feedback.averageRating >= 4) {
+      insights.push('Alta satisfação com planos anteriores');
+      patterns.push('high_satisfaction');
+    } else if (feedback.averageRating < 3) {
+      insights.push('Insatisfação com planos anteriores');
+      patterns.push('low_satisfaction');
+      recommendations.push('Os planos serão ajustados com base em seu feedback');
+    }
+  }
+
+  if (feedback?.recent && feedback.recent.length > 0) {
+    const recentNegativeFeedback = feedback.recent
+      .filter(f => f.rating && f.rating < 3 && f.feedbackText)
+      .map(f => f.feedbackText);
+    
+    if (recentNegativeFeedback.length > 0) {
+      insights.push('Feedback negativo recente identificado');
+      patterns.push('negative_feedback');
+    }
+  }
+
+  return { insights, patterns, recommendations };
+}
+
+const transformPlanFeedbackEntry = (entry) => {
+  if (!entry) return null;
+  const parsedMetadata = safeJsonParse(entry.metadata);
+  return {
+    rating: entry.rating ?? parsedMetadata?.rating ?? null,
+    difficultyRating: entry.difficultyRating ?? parsedMetadata?.difficultyRating ?? null,
+    adherence: entry.adherence ?? parsedMetadata?.adherence ?? null,
+    notes: entry.notes || parsedMetadata?.notes || null,
+    improvements: entry.improvements || parsedMetadata?.improvements || null,
+    createdAt: entry.createdAt,
+  };
+};
+
+const buildPlanFeedbackSection = (feedbackEntries = []) => {
+  if (!feedbackEntries.length) return '';
+
+  const { recent, historical } = splitByRecency(feedbackEntries, 0.7);
+
+  const formatFeedback = (entry) => {
+    const ratingText = entry.rating ? `Nota ${entry.rating}/5` : null;
+    const difficultyText = entry.difficultyRating ? `Percepção de dificuldade: ${entry.difficultyRating}/5` : null;
+    const adherenceText = entry.adherence !== null && entry.adherence !== undefined ? `Adesão: ${entry.adherence}%` : null;
+    const details = [ratingText, difficultyText, adherenceText].filter(Boolean).join(' | ');
+    const notes = entry.notes ? `Comentário: ${truncateText(entry.notes, 180)}` : null;
+    const improvements = entry.improvements ? `Solicitou: ${truncateText(entry.improvements, 160)}` : null;
+
+    return `- ${formatDate(entry.createdAt)} ${details ? `(${details})` : ''}${notes ? ` — ${notes}` : ''}${improvements ? ` — ${improvements}` : ''}`;
+  };
+
+  const sections = [];
+  if (recent.length) {
+    sections.push(`Feedback recente:
+${recent.map(formatFeedback).join('\n')}`);
+  }
+  if (historical.length) {
+    sections.push(`Feedback histórico relevante:
+${historical.map(formatFeedback).join('\n')}`);
+  }
+
+  return sections.join('\n');
+};
+
+const buildProgressSection = (progressEntries = []) => {
+  if (!progressEntries.length) return '';
+
+  const formatProgress = (entry) => {
+    const metricName = (entry.metric || entry.logType || 'progresso')
+      .replace(/_/g, ' ')
+      .toLowerCase();
+    const formattedValue = entry.value !== null && entry.value !== undefined ? `${roundValue(entry.value, 2)}` : 's/ registro';
+    const delta =
+      entry.value !== null && entry.value !== undefined &&
+      entry.previousValue !== null &&
+      entry.previousValue !== undefined
+        ? roundValue(entry.value - entry.previousValue, 2)
+        : null;
+
+    const deltaText =
+      delta === null
+        ? 'manutenção'
+        : delta > 0
+        ? `+${delta}`
+        : `${delta}`;
+
+    const notes = entry.notes ? ` ${truncateText(entry.notes, 150)}` : '';
+
+    return `- ${formatDate(entry.date)} • ${metricName}: ${formattedValue} (${deltaText} vs período anterior).${notes}`;
+  };
+
+  const { recent, historical } = splitByRecency(progressEntries, 0.6);
+  const sections = [];
+
+  if (recent.length) {
+    sections.push(`Tendências recentes:
+${recent.map(formatProgress).join('\n')}`);
+  }
+
+  if (historical.length) {
+    sections.push(`Tendências anteriores:
+${historical.map(formatProgress).join('\n')}`);
+  }
+
+  return sections.join('\n');
+};
+
+async function buildAdaptiveContext({ userId, mode, planType, activitySummary }) {
+  if (!userId) return '';
+
+  const contextPromises = [
+    getUserMemory(userId, mode, MEMORY_LIMITS.byMode),
+    prisma.progressLog.findMany({
+      where: { userId },
+      orderBy: { date: 'desc' },
+      take: MEMORY_LIMITS.progress,
+    }),
+  ];
+
+  if (planType) {
+    contextPromises.push(
+      prisma.planFeedback.findMany({
+        where: { userId, planType },
+        orderBy: { createdAt: 'desc' },
+        take: MEMORY_LIMITS.feedback,
+      })
+    );
+  } else {
+    contextPromises.push(Promise.resolve([]));
+  }
+
+  const [memoryEntries, progressEntries, planFeedback] = await Promise.all(contextPromises);
+
+  let normalizedFeedback = planFeedback.map(transformPlanFeedbackEntry).filter(Boolean);
+
+  if (planType && normalizedFeedback.length < MEMORY_LIMITS.feedback) {
+    const fallbackFeedback = await prisma.aIFeedback.findMany({
+      where: { userId, planType },
+      orderBy: { createdAt: 'desc' },
+      take: MEMORY_LIMITS.feedback - normalizedFeedback.length,
+    });
+    const translatedFallback = fallbackFeedback.map((entry) =>
+      transformPlanFeedbackEntry({
+        rating: entry.rating,
+        difficultyRating: safeJsonParse(entry.planContent)?.difficultyRating || null,
+        adherence: safeJsonParse(entry.planContent)?.adherence || null,
+        notes: entry.feedbackText,
+        improvements: safeJsonParse(entry.planContent)?.improvements || null,
+        metadata: entry.planContent,
+        createdAt: entry.createdAt,
+      })
+    );
+    normalizedFeedback = [...normalizedFeedback, ...translatedFallback.filter(Boolean)];
+  }
+
+  const sections = [];
+
+  if (Array.isArray(memoryEntries) && memoryEntries.length) {
+    const { recent, historical } = splitByRecency(memoryEntries, 0.7);
+    const summarizeEntry = (entry) => {
+      const metadata = safeJsonParse(entry.metadata);
+      const focusNote = metadata?.focus ? ` [foco: ${truncateText(metadata.focus, 50)}]` : '';
+      return `- ${formatDate(entry.createdAt)} Usuário: ${truncateText(entry.userMessage, 160)} | IA: ${truncateText(entry.aiResponse, 160)}${focusNote}`;
+    };
+
+    if (recent.length) {
+      sections.push(`Interações recentes:
+${recent.map(summarizeEntry).join('\n')}`);
+    }
+    if (historical.length) {
+      sections.push(`Contexto histórico relevante:
+${historical.map(summarizeEntry).join('\n')}`);
+    }
+  }
+
+  if (normalizedFeedback.length) {
+    const feedbackSection = buildPlanFeedbackSection(normalizedFeedback);
+    if (feedbackSection) {
+      sections.push(`Feedback do usuário:
+${feedbackSection}`);
+    }
+  }
+
+  if (Array.isArray(progressEntries) && progressEntries.length) {
+    const progressSection = buildProgressSection(progressEntries);
+    if (progressSection) {
+      sections.push(`Sinais de progresso observados:
+${progressSection}`);
+    }
+  }
+
+  if (activitySummary) {
+    const analysis = analyzeProgressPatterns(activitySummary);
+    const analysisSections = [];
+
+    if (analysis.insights.length) {
+      analysisSections.push(`Insights recentes:
+${analysis.insights.map((insight) => `- ${insight}`).join('\n')}`);
+    }
+
+    if (analysis.recommendations.length) {
+      analysisSections.push(`Ajustes sugeridos:
+${analysis.recommendations.map((rec) => `- ${rec}`).join('\n')}`);
+    }
+
+    if (analysisSections.length) {
+      sections.push(analysisSections.join('\n'));
+    }
+  }
+
+  if (!sections.length) {
+    return '';
+  }
+
+  return `\nContexto Histórico Personalizado:\n${sections.join('\n\n')}\n`;
+}
+
+/**
+ * Responde a perguntas do usuário com contexto e memória
  * @param {string} question - A pergunta do usuário
  * @param {Object} userData - Dados do usuário
  * @param {string} context - Contexto adicional (opcional)
+ * @param {Object} options - Opções adicionais (userId, activitySummary, etc.)
  * @returns {Promise<string>} - A resposta à pergunta
  */
-async function answerQuestion(question, userData, context = '') {
+async function answerQuestion(question, userData, context = '', options = {}) {
+  const { userId, activitySummary, planContext, mode = 'chat' } = options;
+
+  const adaptiveContext = await buildAdaptiveContext({
+    userId,
+    mode,
+    planType: null,
+    activitySummary,
+  });
+
   const prompt = `
     Usuário: ${userData.name || 'Usuário do StrengthSprint'}
     Pergunta: ${question}
@@ -330,15 +777,26 @@ async function answerQuestion(question, userData, context = '') {
     - Objetivo: ${userData.goal || 'Não informado'}
     
     Contexto adicional:
-    ${context}
+    ${context || 'Sem contexto adicional fornecido.'}${adaptiveContext}
     
-    Por favor, responda à pergunta do usuário de forma clara, precisa e útil.
-    Seja profissional, encorajador e forneça exemplos quando apropriado.
-    Se a pergunta estiver fora do escopo de fitness, nutrição ou saúde, 
-    gentilmente informe que está especializado nestas áreas.
+    Responda de forma clara, personalizada e baseada nas interações anteriores e progresso do usuário.
+    Priorize recomendações práticas, seguras e adaptadas ao histórico apresentado.
   `;
 
-  return await callOpenRouter(prompt, AI_MODELS.general, 1000);
+  const response = await callOpenRouter(prompt, AI_MODELS.general, 1000);
+
+  if (userId) {
+    try {
+      await saveUserMemory(userId, mode, question, response, {
+        planContext: planContext || `chat-${Date.now()}`,
+        mode,
+      });
+    } catch (error) {
+      console.error('Erro ao salvar memória:', error);
+    }
+  }
+
+  return response;
 }
 
 module.exports = {
@@ -347,4 +805,8 @@ module.exports = {
   generateHealthAssessment,
   analyzeHealthDocument,
   answerQuestion,
+  getUserMemory,
+  saveUserMemory,
+  analyzeProgressPatterns,
+  buildAdaptiveContext,
 };
