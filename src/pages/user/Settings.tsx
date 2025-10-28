@@ -8,6 +8,8 @@ import { useAppContext } from '@/context/AppContext';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Slider } from '@/components/ui/slider';
 import { useI18n } from '@/i18n';
 import { useUnits } from '@/hooks/useUnits';
 
@@ -15,6 +17,7 @@ const Settings: React.FC = () => {
   const { settings, updateSettings } = useAppContext();
   const { t } = useI18n();
   const units = useUnits();
+  const quietHoursEnabled = Boolean(settings.notifications.quietHours);
 
   return (
     <Layout>
@@ -221,8 +224,113 @@ const Settings: React.FC = () => {
               <CardHeader>
                 <CardTitle>Treino & Nutrição</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-500">Objetivos, equipamentos, restrições e lembretes. (Fase 4)</p>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="notif-push">Notificações Push</Label>
+                    <p className="text-sm text-gray-500">
+                      Receba lembretes sobre treinos e refeições
+                    </p>
+                  </div>
+                  <Switch
+                    id="notif-push"
+                    checked={settings.notifications.push}
+                    onCheckedChange={(checked) =>
+                      updateSettings({ notifications: { ...settings.notifications, push: checked } })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="notif-email">Notificações por E-mail</Label>
+                    <p className="text-sm text-gray-500">
+                      Receba resumos semanais e atualizações por e-mail
+                    </p>
+                  </div>
+                  <Switch
+                    id="notif-email"
+                    checked={settings.notifications.email}
+                    onCheckedChange={(checked) =>
+                      updateSettings({ notifications: { ...settings.notifications, email: checked } })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="quiet-hours-toggle">Horário Silencioso</Label>
+                      <p className="text-sm text-gray-500">
+                        Defina um período em que não deseja receber notificações
+                      </p>
+                    </div>
+                    <Switch
+                      id="quiet-hours-toggle"
+                      checked={quietHoursEnabled}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          updateSettings({
+                            notifications: {
+                              ...settings.notifications,
+                              quietHours: { start: '22:00', end: '08:00' },
+                            },
+                          });
+                        } else {
+                          updateSettings({
+                            notifications: {
+                              ...settings.notifications,
+                              quietHours: null,
+                            },
+                          });
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {quietHoursEnabled && (
+                    <div className="grid grid-cols-2 gap-4 pl-6">
+                      <div>
+                        <Label htmlFor="quiet-start" className="text-sm">Início</Label>
+                        <Input
+                          id="quiet-start"
+                          type="time"
+                          value={settings.notifications.quietHours?.start || '22:00'}
+                          onChange={(e) =>
+                            updateSettings({
+                              notifications: {
+                                ...settings.notifications,
+                                quietHours: {
+                                  start: e.target.value,
+                                  end: settings.notifications.quietHours?.end || '08:00',
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="quiet-end" className="text-sm">Fim</Label>
+                        <Input
+                          id="quiet-end"
+                          type="time"
+                          value={settings.notifications.quietHours?.end || '08:00'}
+                          onChange={(e) =>
+                            updateSettings({
+                              notifications: {
+                                ...settings.notifications,
+                                quietHours: {
+                                  start: settings.notifications.quietHours?.start || '22:00',
+                                  end: e.target.value,
+                                },
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -243,8 +351,79 @@ const Settings: React.FC = () => {
               <CardHeader>
                 <CardTitle>Preferências de IA</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-500">Persona, idioma e privacidade de treinamento. (Fase 6)</p>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="ai-persona">Persona da IA</Label>
+                  <Select
+                    value={settings.ai.persona}
+                    onValueChange={(v) =>
+                      updateSettings({ ai: { ...settings.ai, persona: v as any } })
+                    }
+                  >
+                    <SelectTrigger id="ai-persona">
+                      <SelectValue placeholder="Selecione a persona" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="technical">Técnica</SelectItem>
+                      <SelectItem value="motivational">Motivacional</SelectItem>
+                      <SelectItem value="neutral">Neutra</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-gray-500">Escolha o estilo de comunicação da IA</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ai-language">Idioma da IA</Label>
+                  <Select
+                    value={settings.ai.language}
+                    onValueChange={(v) =>
+                      updateSettings({ ai: { ...settings.ai, language: v as any } })
+                    }
+                  >
+                    <SelectTrigger id="ai-language">
+                      <SelectValue placeholder="Selecione o idioma" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Automático</SelectItem>
+                      <SelectItem value="pt">Português</SelectItem>
+                      <SelectItem value="en">English</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-gray-500">Idioma das respostas da IA</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ai-creativity">Criatividade ({settings.ai.creativity.toFixed(1)})</Label>
+                  <Slider
+                    id="ai-creativity"
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    value={[settings.ai.creativity]}
+                    onValueChange={([value]) =>
+                      updateSettings({ ai: { ...settings.ai, creativity: value } })
+                    }
+                  />
+                  <p className="text-sm text-gray-500">
+                    Controla a variação nas respostas da IA (0 = mais conservador, 1 = mais criativo)
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="ai-training">Permitir uso de dados para treinamento</Label>
+                    <p className="text-sm text-gray-500">
+                      Seus dados podem ser usados para melhorar os modelos de IA
+                    </p>
+                  </div>
+                  <Switch
+                    id="ai-training"
+                    checked={settings.ai.allowTraining}
+                    onCheckedChange={(checked) =>
+                      updateSettings({ ai: { ...settings.ai, allowTraining: checked } })
+                    }
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

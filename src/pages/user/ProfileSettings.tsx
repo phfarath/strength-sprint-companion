@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
+import ProfilePreferencesForm from '@/components/profile/ProfilePreferencesForm';
 
 const ProfileSettings = () => {
   const { user, updateUserProfile, updateUserGoals } = useAppContext();
@@ -107,11 +108,12 @@ const ProfileSettings = () => {
     <Layout>
       <div className="container mx-auto py-8">
         <h1 className="text-2xl font-bold mb-6">Configurações de Perfil</h1>
-        <p className="text-gray-600 mb-6">Atualize suas informações pessoais e metas nutricionais.</p>
+        <p className="text-gray-600 mb-6">Atualize suas informações pessoais, preferências e metas nutricionais.</p>
         
         <Tabs defaultValue="dados-pessoais">
           <TabsList className="mb-6">
             <TabsTrigger value="dados-pessoais">Dados Pessoais</TabsTrigger>
+            <TabsTrigger value="preferencias">Preferências</TabsTrigger>
             <TabsTrigger value="metas-nutricionais">Metas Nutricionais</TabsTrigger>
           </TabsList>
           
@@ -177,6 +179,10 @@ const ProfileSettings = () => {
                 </form>
               </CardContent>
             </Card>
+          </TabsContent>
+          
+          <TabsContent value="preferencias">
+            <ProfilePreferencesForm user={user} />
           </TabsContent>
           
           <TabsContent value="metas-nutricionais">
