@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
@@ -46,12 +47,22 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: '15kb' }));
+app.use(express.urlencoded({ extended: true, limit: '15kb' }));
 
 // Adicione isso no seu index.js
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
+});
+
+// Rate limiter for AI endpoints
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per window
+  message: 'Too many requests from this IP, please try again after 15 minutes',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
 // Basic route
@@ -65,7 +76,7 @@ app.use('/api/exercises', require('./routes/exercises'));
 app.use('/api/workouts', require('./routes/workouts'));
 app.use('/api/nutrition', require('./routes/nutrition'));
 app.use('/api/progress', require('./routes/progress'));
-app.use('/api/ai', require('./routes/ai'));
+app.use('/api/ai', aiLimiter, require('./routes/ai'));
 
 // Error handler
 app.use((err, req, res, next) => {

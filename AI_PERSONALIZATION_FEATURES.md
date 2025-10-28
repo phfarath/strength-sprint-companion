@@ -230,8 +230,8 @@ Similar to workout generation, but includes:
 - ✅ Plan content is truncated to 15KB to prevent abuse
 - ✅ Feedback submissions tied to authenticated user
 - ✅ Input validation on ratings (1-5 range enforced)
-- ⚠️ **TODO**: Implement rate limiting on AI generation endpoints
-- ⚠️ **TODO**: Add request size limits for plan content
+- ✅ Rate limiting implemented on AI generation endpoints
+- ✅ Request size limits enforced for plan content submissions
 
 ## Usage Example
 
