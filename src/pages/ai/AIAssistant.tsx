@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { AIFeedbackWidget } from '@/components/ai/AIFeedbackWidget';
+import ReactMarkdown from 'react-markdown';
 
 type AssistantIntent = 'chat' | 'workout' | 'nutrition' | 'health' | 'document';
 
@@ -379,7 +380,13 @@ const AIAssistant: React.FC = () => {
                               : 'bg-white text-gray-900'
                           }`}
                         >
-                          <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
+                          {message.type === 'ai' ? (
+                            <div className="prose prose-sm max-w-none text-base leading-relaxed prose-headings:font-semibold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1">
+                              <ReactMarkdown>{message.content}</ReactMarkdown>
+                            </div>
+                          ) : (
+                            <div className="whitespace-pre-wrap text-base leading-relaxed">{message.content}</div>
+                          )}
                         </div>
                         <div className={`mt-2 text-xs text-gray-500 ${message.type === 'user' ? 'text-right' : 'text-left'}`}>
                           {message.timestamp.toLocaleTimeString()}
