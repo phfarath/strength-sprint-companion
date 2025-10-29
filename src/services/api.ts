@@ -90,6 +90,7 @@ export const apiServices = {
   generateHealthAssessment: (healthData: any) => api.post('/ai/health-assessment', healthData),
   analyzeHealthDocument: (documentData: any) => api.post('/ai/document-analysis', documentData),
   askAIQuestion: (questionData: any) => api.post('/ai/chat', questionData),
+  askAIUnified: (data: { message: string; documentContent?: string }) => api.post('/ai/unified', data),
   
   // AI Feedback
   submitAIFeedback: (feedbackData: {

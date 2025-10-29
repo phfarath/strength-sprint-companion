@@ -799,6 +799,320 @@ async function answerQuestion(question, userData, context = '', options = {}) {
   return response;
 }
 
+/**
+ * Classifies user intent from a message
+ * @param {string} message - The user's message
+ * @param {Object} userData - User data for context
+ * @param {Object} activitySummary - Recent activity summary
+ * @returns {Promise<Object>} - Intent classification with confidence
+ */
+async function classifyUserIntent(message, userData = {}, activitySummary = null) {
+  try {
+    const contextHints = [];
+    
+    // Add context from activity summary
+    if (activitySummary) {
+      if (activitySummary.workouts?.summary?.totalSessions > 0) {
+        contextHints.push('Usuário tem histórico de treinos');
+      }
+      if (activitySummary.nutrition?.summary?.trackedDays > 0) {
+        contextHints.push('Usuário tem histórico de rastreamento nutricional');
+      }
+    }
+    
+    const contextSection = contextHints.length > 0 
+      ? `\nContexto do usuário: ${contextHints.join(', ')}`
+      : '';
+
+    const prompt = `
+Você é um classificador de intenções para um assistente de fitness. Analise a mensagem do usuário e classifique em uma das seguintes categorias:
+
+- **workout**: Solicitações sobre treinos, exercícios, criação de planos de treino, rotinas de exercícios
+- **nutrition**: Solicitações sobre alimentação, dieta, planos alimentares, calorias, macronutrientes
+- **health**: Avaliações de saúde, indicadores de saúde (IMC, pressão, etc), bem-estar geral
+- **document**: Solicitações para analisar documentos, exames médicos, laudos, relatórios de saúde
+- **chat**: Conversas gerais, dúvidas sobre fitness, motivação, orientações gerais
+
+Usuário: ${userData.name || 'Usuário'}
+Objetivo: ${userData.goal || 'Não informado'}
+Nível: ${userData.fitnessLevel || 'Não informado'}${contextSection}
+
+Mensagem do usuário: "${message}"
+
+Analise a mensagem e responda APENAS com um JSON válido seguindo este formato:
+{
+  "intent": "categoria",
+  "confidence": 0.95,
+  "extractedContext": {
+    "keywords": ["palavra1", "palavra2"],
+    "focus": "descrição breve do foco da solicitação"
+  }
+}
+
+Regras:
+- Se mencionar "treino", "exercício", "musculação", "cardio" → workout
+- Se mencionar "comida", "dieta", "alimentação", "calorias", "proteína" → nutrition
+- Se mencionar "saúde", "IMC", "pressão", "avaliação" → health
+- Se mencionar "exame", "documento", "laudo", "análise de" seguido de documento → document
+- Para dúvidas gerais ou conversas → chat
+- confidence deve ser entre 0 e 1
+`;
+
+    const response = await callOpenRouter(prompt, AI_MODELS.general, 300, {
+      response_format: { type: 'json_object' }
+    });
+    
+    const classification = JSON.parse(response);
+    
+    // Validate and ensure proper format
+    return {
+      intent: classification.intent || 'chat',
+      confidence: Math.min(Math.max(classification.confidence || 0.5, 0), 1),
+      extractedContext: classification.extractedContext || { keywords: [], focus: '' }
+    };
+  } catch (error) {
+    console.error('Erro ao classificar intenção:', error);
+    // Default to chat mode on error
+    return {
+      intent: 'chat',
+      confidence: 0.3,
+      extractedContext: { keywords: [], focus: 'Erro na classificação' }
+    };
+  }
+}
+
+/**
+ * Processes a unified request by detecting intent and routing appropriately
+ * @param {string} message - The user's message
+ * @param {Object} userData - Complete user data
+ * @param {Object} options - Additional options (activitySummary, nutritionalGoals, etc.)
+ * @returns {Promise<Object>} - Response with intent, message, and structured data if applicable
+ */
+async function processUnifiedRequest(message, userData, options = {}) {
+  const { activitySummary, nutritionalGoals, userId, documentContent } = options;
+
+  // Classify user intent
+  const classification = await classifyUserIntent(message, userData, activitySummary);
+  const { intent, confidence, extractedContext } = classification;
+
+  console.log(`Intent detected: ${intent} (confidence: ${confidence})`);
+
+  let response;
+  let structuredData = null;
+  let planType = null;
+  let planContext = null;
+
+  // Route to appropriate handler based on intent
+  switch (intent) {
+    case 'workout': {
+      planContext = `ai-workout-unified-${Date.now()}`;
+      planType = 'workout';
+      
+      const workoutUserData = {
+        ...userData,
+        customRequest: message
+      };
+
+      const workoutPlanText = await generateWorkoutPlan(workoutUserData, {
+        activitySummary,
+        userId,
+        planContext,
+        requestSummary: message
+      });
+
+      try {
+        const planData = JSON.parse(workoutPlanText);
+        if (planData.plan && Array.isArray(planData.plan)) {
+          structuredData = planData;
+          response = formatWorkoutPlanText(planData);
+        } else {
+          response = workoutPlanText;
+        }
+      } catch (parseError) {
+        response = workoutPlanText;
+      }
+      break;
+    }
+
+    case 'nutrition': {
+      planContext = `ai-nutrition-unified-${Date.now()}`;
+      planType = 'nutrition';
+      
+      const nutritionUserData = {
+        ...userData,
+        customRequest: message
+      };
+
+      const mealPlanText = await generateMealPlan(
+        nutritionUserData,
+        nutritionalGoals || {},
+        {
+          activitySummary,
+          userId,
+          planContext,
+          requestSummary: message
+        }
+      );
+
+      try {
+        const planData = JSON.parse(mealPlanText);
+        if (planData.meals && Array.isArray(planData.meals)) {
+          structuredData = planData;
+          response = formatMealPlanText(planData);
+        } else {
+          response = mealPlanText;
+        }
+      } catch (parseError) {
+        response = mealPlanText;
+      }
+      break;
+    }
+
+    case 'health': {
+      planContext = `ai-health-unified-${Date.now()}`;
+      planType = 'health';
+      
+      const healthData = {
+        bmi: userData.weight && userData.height
+          ? (userData.weight / Math.pow(userData.height / 100, 2)).toFixed(1)
+          : null,
+        bodyFatPercentage: null,
+        bloodPressure: 'não informado',
+        restingHeartRate: null,
+        activityLevel: userData.fitnessLevel || 'moderado',
+        sleepQuality: 'boa',
+        stressLevel: 'moderado',
+        medicalConditions: userData.injuries || 'nenhuma',
+        medications: 'nenhum',
+        allergies: 'nenhuma',
+        customRequest: message
+      };
+
+      response = await generateHealthAssessment(userData, healthData);
+      break;
+    }
+
+    case 'document': {
+      planContext = `ai-document-unified-${Date.now()}`;
+      planType = 'document';
+      
+      if (documentContent && documentContent.trim()) {
+        // User provided document content, analyze it
+        response = await analyzeHealthDocument(documentContent, userData);
+      } else {
+        // Ask user to provide document content
+        response = `Para analisar documentos de saúde, por favor, forneça o conteúdo completo do documento. 
+
+Cole o texto do seu exame, laudo ou relatório médico e eu farei uma análise detalhada para você.
+
+Você pode colar:
+- Resultados de exames de sangue
+- Laudos de exames de imagem
+- Relatórios médicos
+- Avaliações físicas
+
+Estou aguardando o conteúdo do documento para análise.`;
+      }
+      break;
+    }
+
+    case 'chat':
+    default: {
+      response = await answerQuestion(message, userData, '', {
+        userId,
+        activitySummary,
+        planContext: `chat-unified-${Date.now()}`,
+        mode: 'chat'
+      });
+      break;
+    }
+  }
+
+  return {
+    intent,
+    confidence,
+    extractedContext,
+    response,
+    structuredData,
+    planType,
+    planContext
+  };
+}
+
+/**
+ * Formats workout plan data into readable text
+ * @param {Object} planData - Workout plan data
+ * @returns {string} - Formatted text
+ */
+function formatWorkoutPlanText(planData) {
+  if (!planData || !planData.plan || !Array.isArray(planData.plan)) {
+    return 'Plano de treino gerado com sucesso!';
+  }
+
+  const formattedDays = planData.plan.map(day => {
+    const dayName = day.day || day.name || 'Treino';
+    const exercises = Array.isArray(day.exercises)
+      ? day.exercises.map((ex, idx) => 
+          `  ${idx + 1}. ${ex.name || 'Exercício'} - ${ex.sets || 0} séries x ${ex.reps || 0} reps${ex.rest ? ` (${ex.rest}s descanso)` : ''}`
+        ).join('\n')
+      : '  Nenhum exercício';
+    
+    const notes = day.notes ? `\n  Obs: ${day.notes}` : '';
+    return `**${dayName}**\n${exercises}${notes}`;
+  }).join('\n\n');
+
+  const coachingNotes = planData.coachingNotes 
+    ? `\n\n**Observações do Treinador:**\n${planData.coachingNotes}`
+    : '';
+
+  return `🏋️ **Plano de Treino Gerado**\n\n${formattedDays}${coachingNotes}`;
+}
+
+/**
+ * Formats meal plan data into readable text
+ * @param {Object} planData - Meal plan data
+ * @returns {string} - Formatted text
+ */
+function formatMealPlanText(planData) {
+  if (!planData || !planData.meals || !Array.isArray(planData.meals)) {
+    return 'Plano alimentar gerado com sucesso!';
+  }
+
+  const formattedMeals = planData.meals.map(meal => {
+    const mealName = meal.name || 'Refeição';
+    const mealTime = meal.time ? ` (${meal.time})` : '';
+    const items = Array.isArray(meal.items)
+      ? meal.items.map((item, idx) => {
+          const macros = [];
+          if (item.calories) macros.push(`${item.calories} kcal`);
+          if (item.protein) macros.push(`${item.protein}g prot`);
+          if (item.carbs) macros.push(`${item.carbs}g carb`);
+          if (item.fat) macros.push(`${item.fat}g gord`);
+          
+          const macroInfo = macros.length > 0 ? ` (${macros.join(', ')})` : '';
+          const quantity = item.quantity ? ` - ${item.quantity}g` : '';
+          
+          return `  ${idx + 1}. ${item.name}${quantity}${macroInfo}`;
+        }).join('\n')
+      : '  Nenhum item';
+    
+    const notes = meal.notes ? `\n  Obs: ${meal.notes}` : '';
+    return `**${mealName}${mealTime}**\n${items}${notes}`;
+  }).join('\n\n');
+
+  let summary = '';
+  if (planData.dailySummary) {
+    const s = planData.dailySummary;
+    summary = `\n\n**Resumo Diário:**\n${s.calories || 0} kcal | ${s.protein || 0}g proteína | ${s.carbs || 0}g carboidratos | ${s.fat || 0}g gorduras`;
+  }
+
+  const coachingNotes = planData.coachingNotes
+    ? `\n\n**Observações do Nutricionista:**\n${planData.coachingNotes}`
+    : '';
+
+  return `🍎 **Plano Alimentar Gerado**\n\n${formattedMeals}${summary}${coachingNotes}`;
+}
+
 module.exports = {
   generateWorkoutPlan,
   generateMealPlan,
@@ -809,4 +1123,6 @@ module.exports = {
   saveUserMemory,
   analyzeProgressPatterns,
   buildAdaptiveContext,
+  classifyUserIntent,
+  processUnifiedRequest,
 };

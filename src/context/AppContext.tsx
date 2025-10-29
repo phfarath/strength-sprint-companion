@@ -93,6 +93,7 @@ interface AppContextType {
   generateAIHealthAssessment: (data: any) => Promise<any>;
   analyzeAIHealthDocument: (data: any) => Promise<any>;
   askAIQuestion: (question: string) => Promise<any>;
+  askAIUnified: (payload: { message: string; documentContent?: string }) => Promise<any>;
 
   // AI Feedback
   submitAIFeedback: (feedbackData: {
@@ -913,6 +914,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   generateAIHealthAssessment: apiServices.generateHealthAssessment,
   analyzeAIHealthDocument: apiServices.analyzeHealthDocument,
   askAIQuestion: apiServices.askAIQuestion,
+  askAIUnified: apiServices.askAIUnified,
 
   // AI Feedback
   submitAIFeedback: apiServices.submitAIFeedback,
