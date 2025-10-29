@@ -189,6 +189,116 @@ const buildFeedbackSummary = (feedback) => {
   };
 };
 
+const buildProgressSummary = (logs) => {
+  if (!Array.isArray(logs)) {
+    return {
+      recent: [],
+      insights: [],
+    };
+  }
+
+  const recent = logs.map((log) => {
+    const value = log.value !== null && log.value !== undefined ? roundNumber(log.value, 2) : null;
+    const previousValue = log.previousValue !== null && log.previousValue !== undefined ? roundNumber(log.previousValue, 2) : null;
+    const delta = value !== null && previousValue !== null ? roundNumber(value - previousValue, 2) : null;
+
+    return {
+      id: log.id,
+      date: log.date?.toISOString?.() || log.date,
+      logType: log.logType,
+      category: log.category,
+      metric: log.metric,
+      value,
+      previousValue,
+      delta,
+      notes: log.notes,
+    };
+  });
+
+  const insights = recent
+    .filter((log) => log.delta !== null && Math.abs(log.delta) >= 5)
+    .map((log) => {
+      const direction = log.delta > 0 ? 'subiu' : 'caiu';
+      return `${log.metric || log.logType} ${direction} ${Math.abs(log.delta)} em relação ao período anterior.`;
+    });
+
+  return {
+    recent,
+    insights,
+  };
+};
+
+const syncProgressLogs = async (prisma, userId, activitySummary, options = {}) => {
+  if (!userId || !activitySummary) return;
+
+  const now = new Date();
+  const logDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const upsertLog = async ({ logType, category, metric, value, notes }) => {
+    if (value === null || value === undefined) {
+      return;
+    }
+
+    const previous = await prisma.progressLog.findFirst({
+      where: {
+        userId,
+        logType,
+        date: {
+          lt: logDate,
+        },
+      },
+      orderBy: {
+        date: 'desc',
+      },
+    });
+
+    await prisma.progressLog.deleteMany({
+      where: {
+        userId,
+        logType,
+        date: logDate,
+      },
+    });
+
+    await prisma.progressLog.create({
+      data: {
+        userId,
+        date: logDate,
+        logType,
+        category,
+        metric: metric || null,
+        value,
+        previousValue: previous?.value ?? null,
+        notes: notes || null,
+      },
+    });
+  };
+
+  const workouts = activitySummary.workouts?.summary;
+  if (workouts) {
+    const notes = `Completou ${workouts.completedSessions || 0} de ${workouts.totalSessions || 0} sessões nos últimos ${activitySummary.range?.days || options.days || 14} dias.`;
+    await upsertLog({
+      logType: 'workout_completion',
+      category: 'workout',
+      metric: 'completion_rate',
+      value: workouts.completionRate ?? null,
+      notes,
+    });
+  }
+
+  const nutrition = activitySummary.nutrition?.summary;
+  if (nutrition) {
+    const notes = `Calorias médias de ${nutrition.averageCalories || 0} kcal em ${nutrition.trackedDays || 0} dias acompanhados.`;
+    await upsertLog({
+      logType: 'nutrition_average_calories',
+      category: 'nutrition',
+      metric: 'average_calories',
+      value: nutrition.averageCalories ?? null,
+      notes,
+    });
+  }
+};
+
 async function getUserActivitySummary(prisma, userId, options = {}) {
   const days = options.days || 14;
   const now = new Date();
@@ -261,6 +371,16 @@ async function getUserActivitySummary(prisma, userId, options = {}) {
   const device = buildDeviceSummary(deviceEntries);
   const feedback = buildFeedbackSummary(aiFeedback);
 
+  await syncProgressLogs(prisma, userId, { workouts, nutrition, range: { days } }, options);
+
+  const progressLogs = await prisma.progressLog.findMany({
+    where: { userId },
+    orderBy: { date: 'desc' },
+    take: options.maxProgressLogs || 20,
+  });
+
+  const progress = buildProgressSummary(progressLogs);
+
   return {
     range: {
       start: start.toISOString(),
@@ -271,6 +391,7 @@ async function getUserActivitySummary(prisma, userId, options = {}) {
     nutrition,
     device,
     feedback,
+    progress,
   };
 }
 
