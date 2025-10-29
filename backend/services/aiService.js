@@ -174,7 +174,8 @@ ${truncateText(userData.customRequest || requestSummary, 280)}
     ${adaptiveContext}
     ${activityContext}
 ${customRequestSection}
-    Com base nas informações acima, crie um plano de treino personalizado para uma semana:
+    Com base nas informações acima, crie um plano de treino personalizado para uma semana.
+    IMPORTANTE: Se estiver gerando coachingNotes, formate-as em markdown (use ### para títulos, - para listas, ** para negrito).
 
     Perfil do Usuário:
     - Nome: ${userData.name || 'Não informado'}
@@ -270,7 +271,8 @@ ${truncateText(userData.customRequest || requestSummary, 280)}
     ${adaptiveContext}
     ${activityContext}
 ${customRequestSection}
-    Com base nas informações acima, crie um plano alimentar personalizado para um dia:
+    Com base nas informações acima, crie um plano alimentar personalizado para um dia.
+    IMPORTANTE: Se estiver gerando coachingNotes, formate-as em markdown (use ### para títulos, - para listas, ** para negrito).
     
     Perfil do Usuário:
     - Nome: ${userData.name || 'Não informado'}
@@ -376,6 +378,12 @@ async function generateHealthAssessment(userData, healthData) {
     5. Recomendações de estilo de vida
     6. Quando procurar ajuda médica
     
+    IMPORTANTE: Formate sua resposta em markdown usando:
+    - ### para títulos de seções
+    - - para listas
+    - ** para negrito em palavras importantes
+    - * para itálico em observações
+    
     Formate a resposta de forma clara, profissional e encorajadora.
   `;
 
@@ -409,6 +417,12 @@ async function analyzeHealthDocument(documentContent, userData) {
     4. Recomendações baseadas nos resultados
     5. Quando procurar ajuda médica adicional
     6. Como os resultados podem afetar o plano de treino e nutrição
+    
+    IMPORTANTE: Formate sua resposta em markdown usando:
+    - ### para títulos de seções
+    - - para listas
+    - ** para negrito em valores/indicadores importantes
+    - * para itálico em observações
     
     Formate a resposta de forma clara, profissional e acessível.
   `;
@@ -766,8 +780,10 @@ async function answerQuestion(question, userData, context = '', options = {}) {
   });
 
   const prompt = `
+    Você é um assistente de fitness amigável e profissional chamado StrengthSprint Assistant.
+    
     Usuário: ${userData.name || 'Usuário do StrengthSprint'}
-    Pergunta: ${question}
+    Mensagem do usuário: "${question}"
     
     Informações do usuário:
     - Idade: ${userData.age || 'Não informada'} anos
@@ -779,8 +795,16 @@ async function answerQuestion(question, userData, context = '', options = {}) {
     Contexto adicional:
     ${context || 'Sem contexto adicional fornecido.'}${adaptiveContext}
     
-    Responda de forma clara, personalizada e baseada nas interações anteriores e progresso do usuário.
-    Priorize recomendações práticas, seguras e adaptadas ao histórico apresentado.
+    INSTRUÇÕES IMPORTANTES:
+    1. Seja contextual e natural na resposta
+    2. Para cumprimentos simples (olá, oi, tudo bem, etc), responda de forma amigável e breve, perguntando como pode ajudar
+    3. APENAS forneça planos detalhados de treino ou nutrição quando o usuário EXPLICITAMENTE solicitar (ex: "crie um treino", "monte um plano alimentar", "preciso de exercícios")
+    4. Para dúvidas gerais sobre fitness, dê orientações concisas e práticas
+    5. Use markdown para formatar sua resposta (títulos com ###, listas com -, negrito com **)
+    6. Mantenha o tom motivador mas objetivo
+    7. Se o usuário apenas está conversando ou fazendo perguntas gerais, não inunde com recomendações detalhadas a menos que seja pedido
+    
+    Responda de forma clara, personalizada e contextual à mensagem do usuário.
   `;
 
   const response = await callOpenRouter(prompt, AI_MODELS.general, 1000);
@@ -1053,19 +1077,19 @@ function formatWorkoutPlanText(planData) {
     const dayName = day.day || day.name || 'Treino';
     const exercises = Array.isArray(day.exercises)
       ? day.exercises.map((ex, idx) => 
-          `  ${idx + 1}. ${ex.name || 'Exercício'} - ${ex.sets || 0} séries x ${ex.reps || 0} reps${ex.rest ? ` (${ex.rest}s descanso)` : ''}`
+          `${idx + 1}. **${ex.name || 'Exercício'}** - ${ex.sets || 0} séries x ${ex.reps || 0} reps${ex.rest ? ` (${ex.rest}s descanso)` : ''}`
         ).join('\n')
       : '  Nenhum exercício';
     
-    const notes = day.notes ? `\n  Obs: ${day.notes}` : '';
-    return `**${dayName}**\n${exercises}${notes}`;
+    const notes = day.notes ? `\n\n*Obs: ${day.notes}*` : '';
+    return `### ${dayName}\n\n${exercises}${notes}`;
   }).join('\n\n');
 
   const coachingNotes = planData.coachingNotes 
-    ? `\n\n**Observações do Treinador:**\n${planData.coachingNotes}`
+    ? `\n\n### 📝 Observações do Treinador\n\n${planData.coachingNotes}`
     : '';
 
-  return `🏋️ **Plano de Treino Gerado**\n\n${formattedDays}${coachingNotes}`;
+  return `## 🏋️ Plano de Treino Gerado\n\n${formattedDays}${coachingNotes}`;
 }
 
 /**
@@ -1089,28 +1113,28 @@ function formatMealPlanText(planData) {
           if (item.carbs) macros.push(`${item.carbs}g carb`);
           if (item.fat) macros.push(`${item.fat}g gord`);
           
-          const macroInfo = macros.length > 0 ? ` (${macros.join(', ')})` : '';
+          const macroInfo = macros.length > 0 ? ` *(${macros.join(', ')})*` : '';
           const quantity = item.quantity ? ` - ${item.quantity}g` : '';
           
-          return `  ${idx + 1}. ${item.name}${quantity}${macroInfo}`;
+          return `${idx + 1}. **${item.name}**${quantity}${macroInfo}`;
         }).join('\n')
       : '  Nenhum item';
     
-    const notes = meal.notes ? `\n  Obs: ${meal.notes}` : '';
-    return `**${mealName}${mealTime}**\n${items}${notes}`;
+    const notes = meal.notes ? `\n\n*Obs: ${meal.notes}*` : '';
+    return `### ${mealName}${mealTime}\n\n${items}${notes}`;
   }).join('\n\n');
 
   let summary = '';
   if (planData.dailySummary) {
     const s = planData.dailySummary;
-    summary = `\n\n**Resumo Diário:**\n${s.calories || 0} kcal | ${s.protein || 0}g proteína | ${s.carbs || 0}g carboidratos | ${s.fat || 0}g gorduras`;
+    summary = `\n\n### 📊 Resumo Diário\n\n- **Calorias:** ${s.calories || 0} kcal\n- **Proteína:** ${s.protein || 0}g\n- **Carboidratos:** ${s.carbs || 0}g\n- **Gorduras:** ${s.fat || 0}g`;
   }
 
   const coachingNotes = planData.coachingNotes
-    ? `\n\n**Observações do Nutricionista:**\n${planData.coachingNotes}`
+    ? `\n\n### 📝 Observações do Nutricionista\n\n${planData.coachingNotes}`
     : '';
 
-  return `🍎 **Plano Alimentar Gerado**\n\n${formattedMeals}${summary}${coachingNotes}`;
+  return `## 🍎 Plano Alimentar Gerado\n\n${formattedMeals}${summary}${coachingNotes}`;
 }
 
 module.exports = {
