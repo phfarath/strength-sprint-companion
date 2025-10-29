@@ -10,7 +10,8 @@ const {
   answerQuestion,
   getUserMemory,
   saveUserMemory,
-  analyzeProgressPatterns
+  analyzeProgressPatterns,
+  processUnifiedRequest
 } = require('../services/aiService');
 const { getUserActivitySummary } = require('../services/activitySummaryService');
 
@@ -48,6 +49,206 @@ const formatListField = (value) => {
   const list = parseListField(value);
   if (!list.length) return null;
   return list.join(', ');
+};
+
+const dayToIndex = (day) => {
+  if (!day) return 0;
+  const map = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+    domingo: 0,
+    segunda: 1,
+    terça: 2,
+    terca: 2,
+    quarta: 3,
+    quinta: 4,
+    sexta: 5,
+    sábado: 6,
+    sabado: 6,
+  };
+
+  const normalized = String(day).toLowerCase();
+  return map[normalized] ?? 0;
+};
+
+const normalizeNumber = (value) => {
+  if (value === null || value === undefined || value === '') return 0;
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) {
+    return 0;
+  }
+  return parsed;
+};
+
+const normalizeRestSeconds = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  if (Number.isNaN(parsed) || parsed <= 0) {
+    return null;
+  }
+  return parsed;
+};
+
+/**
+ * Persiste um plano de treino estruturado na base de dados
+ * @param {number} userId
+ * @param {Object} planData
+ * @param {string} planContext
+ * @returns {Promise<Array>} Planos armazenados
+ */
+const persistAIWorkoutPlan = async (userId, planData, planContext = null) => {
+  if (!planData || !Array.isArray(planData?.plan)) {
+    return [];
+  }
+
+  const createdPlans = [];
+
+  for (const dayPlan of planData.plan) {
+    const exercisesData = [];
+
+    if (Array.isArray(dayPlan?.exercises)) {
+      for (let i = 0; i < dayPlan.exercises.length; i += 1) {
+        const ex = dayPlan.exercises[i];
+        if (!ex || !ex.name) {
+          continue;
+        }
+
+        let exercise = await prisma.exercise.findFirst({
+          where: {
+            name: ex.name,
+            user_id: userId,
+          },
+        });
+
+        if (!exercise) {
+          exercise = await prisma.exercise.create({
+            data: {
+              name: ex.name,
+              muscle_group: ex.muscleGroup || 'unknown',
+              user_id: userId,
+            },
+          });
+        }
+
+        exercisesData.push({
+          exercise_id: exercise.id,
+          sets: normalizeNumber(ex.sets),
+          reps: normalizeNumber(ex.reps),
+          weight_kg: normalizeNumber(ex.weight_kg || ex.weight),
+          rest_seconds: normalizeRestSeconds(ex.rest_seconds || ex.rest),
+          order_index: i,
+        });
+      }
+    }
+
+    const storedPlan = await prisma.workoutPlan.create({
+      data: {
+        name: dayPlan.day || dayPlan.name || 'Treino',
+        day_of_week: dayToIndex(dayPlan.day || dayPlan.name),
+        notes: dayPlan.notes || null,
+        user_id: userId,
+        raw_response: JSON.stringify(planData),
+        exercises: {
+          create: exercisesData,
+        },
+      },
+      include: {
+        exercises: {
+          include: {
+            exercise: true,
+          },
+        },
+      },
+    });
+
+    createdPlans.push(storedPlan);
+  }
+
+  return createdPlans;
+};
+
+/**
+ * Persiste um plano alimentar estruturado na base de dados
+ * @param {number} userId
+ * @param {Object} planData
+ * @param {string} planContext
+ * @returns {Promise<Object|null>} Plano armazenado
+ */
+const persistAIMealPlan = async (userId, planData, planContext = null) => {
+  if (!planData || !Array.isArray(planData?.meals)) {
+    return null;
+  }
+
+  const storedPlan = await prisma.$transaction(async (tx) => {
+    const plan = await tx.mealPlan.create({
+      data: {
+        name: planData.name || 'Plano Alimentar IA',
+        date: new Date().toISOString().split('T')[0],
+        userId,
+        raw_response: JSON.stringify(planData),
+      },
+    });
+
+    for (const meal of planData.meals) {
+      if (!meal?.name) continue;
+
+      const mealRecord = await tx.meal.create({
+        data: {
+          name: meal.name,
+          time: meal.time || null,
+          mealPlanId: plan.id,
+        },
+      });
+
+      if (Array.isArray(meal.items)) {
+        for (const item of meal.items) {
+          if (!item?.name) continue;
+
+          const food = await tx.food.create({
+            data: {
+              name: item.name,
+              weight: normalizeNumber(item.quantity),
+              calories: normalizeNumber(item.calories),
+              protein: normalizeNumber(item.protein),
+              carbs: normalizeNumber(item.carbs),
+              fat: normalizeNumber(item.fat),
+              userId,
+            },
+          });
+
+          await tx.mealFood.create({
+            data: {
+              mealId: mealRecord.id,
+              foodId: food.id,
+              quantity: 1,
+            },
+          });
+        }
+      }
+    }
+
+    return tx.mealPlan.findUnique({
+      where: { id: plan.id },
+      include: {
+        meals: {
+          include: {
+            mealFoods: {
+              include: {
+                food: true,
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  return storedPlan;
 };
 
 /**
@@ -811,6 +1012,141 @@ router.get('/progress-log', auth, async (req, res) => {
       success: false,
       message: 'Erro ao recuperar logs de progresso',
       error: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/ai/unified
+ * Endpoint unificado que detecta intenção e roteia para o handler apropriado
+ */
+router.post('/unified', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const { message, documentContent } = req.body;
+    const normalizedMessage = typeof message === 'string' ? message.trim() : '';
+    const intentMessage = normalizedMessage || (documentContent ? 'Analisar documento de saúde fornecido' : '');
+
+    if (!intentMessage) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mensagem é obrigatória'
+      });
+    }
+
+    // Buscar dados do usuário
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        nutritionGoals: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuário não encontrado'
+      });
+    }
+
+    // Preparar dados do usuário
+    const age = user.birthdate
+      ? Math.floor((new Date() - new Date(user.birthdate)) / (365.25 * 24 * 60 * 60 * 1000))
+      : null;
+
+    const userData = {
+      id: user.id,
+      name: user.name,
+      age,
+      weight: user.weight,
+      height: user.height,
+      gender: user.gender,
+      goal: user.goal,
+      fitnessLevel: user.fitnessLevel,
+      availableDays: user.availableDays,
+      equipment: user.equipment,
+      injuries: formatListField(user.injuries) || 'Nenhuma informada',
+      preferences: formatListField(user.workoutPreferences) || 'Nenhuma informada',
+      dietaryRestrictions: formatListField(user.dietaryRestrictions) || 'Nenhuma informada',
+      foodPreferences: formatListField(user.foodPreferences) || 'Nenhuma informada',
+    };
+
+    // Buscar resumo de atividades
+    const activitySummary = await getUserActivitySummary(prisma, userId, {
+      days: 14,
+      maxWorkoutSessions: 10,
+      maxNutritionDays: 10,
+      maxFeedbackEntries: 8,
+    });
+
+    // Processar solicitação unificada
+    const result = await processUnifiedRequest(intentMessage, userData, {
+      activitySummary,
+      nutritionalGoals: user.nutritionGoals || {},
+      userId,
+      documentContent
+    });
+
+    const { intent, confidence, extractedContext, response, structuredData, planType, planContext } = result;
+
+    // Salvar dados estruturados se houver
+    let savedPlan = null;
+    if (structuredData) {
+      try {
+        if (planType === 'workout') {
+          savedPlan = await persistAIWorkoutPlan(userId, structuredData, planContext);
+        } else if (planType === 'nutrition') {
+          savedPlan = await persistAIMealPlan(userId, structuredData, planContext);
+        }
+      } catch (saveError) {
+        console.error('Erro ao salvar plano estruturado:', saveError);
+        // Continue mesmo se falhar ao salvar - usuário ainda recebe a resposta
+      }
+    }
+
+    // Salvar na memória (chat já é salvo dentro de answerQuestion)
+    if (intent !== 'chat') {
+      try {
+        const memoryPayload = structuredData ? JSON.stringify(structuredData) : response;
+        const userMessageForMemory = normalizedMessage || intentMessage;
+
+        await saveUserMemory(
+          userId,
+          intent,
+          userMessageForMemory,
+          memoryPayload,
+          {
+            planContext: planContext || `unified-${Date.now()}`,
+            planType: planType || intent,
+            intent,
+            confidence,
+            extractedContext
+          }
+        );
+      } catch (memoryError) {
+        console.error('Erro ao salvar memória:', memoryError);
+        // Continue mesmo se falhar ao salvar memória
+      }
+    }
+
+    res.json({
+      success: true,
+      intent,
+      confidence,
+      extractedContext,
+      response,
+      structuredData,
+      savedPlan,
+      planType,
+      planContext,
+      activitySummary
+    });
+  } catch (error) {
+    console.error('Erro no endpoint unificado:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao processar solicitação',
+      error: error.message
     });
   }
 });
