@@ -102,6 +102,9 @@ export const apiServices = {
   }) => api.post('/ai/feedback', feedbackData),
   getAIFeedback: (limit?: number) => api.get('/ai/feedback', { params: { limit } }),
 
+  // AI Memory / Conversation History
+  getAIMemory: (mode?: string, limit?: number) => api.get('/ai/memory', { params: { mode, limit } }),
+
   // Activity Summary
   getActivitySummary: (userId: number, days?: number) => api.get(`/users/${userId}/activity-summary`, { params: { days } }),
 };
