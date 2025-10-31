@@ -224,39 +224,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const userResponse = await apiServices.getProfile();
       
-      // Se o usuário não tiver metas nutricionais definidas, adicione valores padrão
       if (!userResponse.data.nutritionGoals) {
-        userResponse.data.nutritionGoals = DEFAULT_USER.nutritionGoals;
+        userResponse.data.nutritionGoals = { ...DEFAULT_USER.nutritionGoals };
       }
       
       setUser(userResponse.data);
       
-      // Buscar outros dados com tratamento de erro individual
-      try {
-        const exercisesResponse = await apiServices.getExercises();
-        setExercises(exercisesResponse.data);
-      } catch (error) {
-        console.error('Erro ao buscar exercícios:', error);
+      const results = await Promise.allSettled([
+        apiServices.getExercises(),
+        apiServices.getFoods(),
+        apiServices.getWorkoutPlans(),
+        apiServices.getWorkoutSessions(),
+        apiServices.getMealPlans(),
+      ]);
+
+      if (results[0].status === 'fulfilled') {
+        setExercises(results[0].value.data);
+      } else {
+        console.error('Erro ao buscar exercícios:', results[0].reason);
         setExercises(mockExercises);
       }
-      
-      try {
-        const foodsResponse = await apiServices.getFoods();
-        setFoods(foodsResponse.data);
-      } catch (error) {
-        console.error('Erro ao buscar alimentos:', error);
+
+      if (results[1].status === 'fulfilled') {
+        setFoods(results[1].value.data);
+      } else {
+        console.error('Erro ao buscar alimentos:', results[1].reason);
         setFoods(mockFoods);
       }
-      
-      // E assim por diante para outros fetchs
+
+      if (results[2].status === 'fulfilled') {
+        setWorkoutPlans(results[2].value.data || []);
+      } else {
+        console.error('Erro ao buscar planos de treino:', results[2].reason);
+        setWorkoutPlans(mockWorkoutPlans);
+      }
+
+      if (results[3].status === 'fulfilled') {
+        setWorkoutLogs(results[3].value.data || []);
+      } else {
+        console.error('Erro ao buscar logs de treino:', results[3].reason);
+        setWorkoutLogs(mockWorkoutLogs);
+      }
+
+      if (results[4].status === 'fulfilled') {
+        const transformed = (results[4].value.data || []).map(transformMealPlan);
+        setMealPlans(transformed);
+      } else {
+        console.error('Erro ao buscar planos alimentares:', results[4].reason);
+        setMealPlans(mockMealPlans);
+      }
     } catch (error) {
       console.error('Erro ao buscar dados do usuário:', error);
       
-      // Se o erro for de autenticação (401), fazer logout
       if (error.response?.status === 401) {
         logout();
       } else {
-        // Para outros erros, usar dados mockados
         setUser(mockUser);
         setExercises(mockExercises);
         setFoods(mockFoods);
@@ -390,10 +412,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const response = await apiServices.register(userData);
       const { token, user: newUser } = response.data;
       
-      // Salvar token
       localStorage.setItem('auth_token', token);
       setIsAuthenticated(true);
+
+      if (!newUser.nutritionGoals) {
+        newUser.nutritionGoals = { ...DEFAULT_USER.nutritionGoals };
+      }
+
       setUser(newUser);
+      
+      await fetchUserData();
       
       return { success: true };
     } catch (error) {

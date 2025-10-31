@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../prisma/client');
 const auth = require('../middleware/auth');
-
-const prisma = new PrismaClient();
 
 // GET /api/workouts/plans - Buscar planos de treino do usuário
 router.get('/plans', auth, async (req, res) => {

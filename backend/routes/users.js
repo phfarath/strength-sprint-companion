@@ -1,15 +1,56 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../prisma/client');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const auth = require('../middleware/auth'); // Importe o middleware de autenticação
+const auth = require('../middleware/auth');
 const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const crypto = require('crypto');
 const { getUserActivitySummary } = require('../services/activitySummaryService');
 
-const prisma = new PrismaClient();
+const DEFAULT_NUTRITION_GOALS = {
+  calories: 2000,
+  protein: 150,
+  carbs: 200,
+  fat: 70
+};
+
+const parseNumericField = (
+  value,
+  fieldName,
+  { integer = false, allowNull = true, required = false, min } = {}
+) => {
+  if (value === undefined) {
+    if (required) {
+      throw new Error(`O campo ${fieldName} é obrigatório e deve ser numérico.`);
+    }
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    if (!allowNull) {
+      throw new Error(`O campo ${fieldName} é obrigatório e deve ser numérico.`);
+    }
+    return null;
+  }
+
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    throw new Error(`O campo ${fieldName} deve ser um número válido.`);
+  }
+
+  if (integer && !Number.isInteger(numericValue)) {
+    throw new Error(`O campo ${fieldName} deve ser um número inteiro.`);
+  }
+
+  if (min !== undefined && numericValue < min) {
+    throw new Error(`O campo ${fieldName} deve ser maior ou igual a ${min}.`);
+  }
+
+  return numericValue;
+};
 
 // Rota de registro
 router.post('/register', async (req, res) => {
@@ -53,7 +94,6 @@ router.post('/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
     
-    // Criar usuário
     const user = await prisma.user.create({
       data: {
         name,
@@ -61,6 +101,19 @@ router.post('/register', async (req, res) => {
         password_hash: hashedPassword
       }
     });
+
+    let nutritionGoalsRecord;
+    try {
+      nutritionGoalsRecord = await prisma.nutritionGoals.create({
+        data: {
+          userId: user.id,
+          ...DEFAULT_NUTRITION_GOALS,
+        }
+      });
+    } catch (goalError) {
+      await prisma.user.delete({ where: { id: user.id } }).catch(() => {});
+      throw goalError;
+    }
     
     // Gerar JWT
     const token = jwt.sign(
@@ -69,12 +122,22 @@ router.post('/register', async (req, res) => {
       { expiresIn: '7d' }
     );
     
+    const normalizedGoals = nutritionGoalsRecord
+      ? {
+          calories: nutritionGoalsRecord.calories,
+          protein: nutritionGoalsRecord.protein,
+          carbs: nutritionGoalsRecord.carbs,
+          fat: nutritionGoalsRecord.fat,
+        }
+      : { ...DEFAULT_NUTRITION_GOALS };
+
     res.status(201).json({
       token,
       user: {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
+        nutritionGoals: normalizedGoals
       }
     });
   } catch (error) {
@@ -142,9 +205,6 @@ router.get('/profile', auth, async (req, res) => {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
     
-    // Log detalhado para depuração
-    console.log('Dados do usuário sendo enviados:', JSON.stringify(user, null, 2));
-    
     // Retorna o usuário formatado corretamente
     res.json({
       id: user.id,
@@ -195,9 +255,6 @@ router.put('/profile', auth, async (req, res) => {
       foodPreferences
     } = req.body;
     
-    console.log("Dados recebidos para atualização:", req.body);
-    console.log("ID do usuário:", userId);
-    
     // Verificar se o usuário existe
     const userExists = await prisma.user.findUnique({
       where: { id: parseInt(userId) }
@@ -207,31 +264,45 @@ router.put('/profile', auth, async (req, res) => {
       return res.status(404).json({ message: 'Usuário não encontrado' });
     }
     
-    // Converter tipos apropriadamente
-    const updateData = {
-      name,
-      weight: weight ? parseFloat(weight) : null,
-      height: height ? parseFloat(height) : null,
-      birthdate: birthdate || null,
-    };
+    let updateData = {};
 
-    // Add optional fields only if provided
-    if (gender !== undefined) updateData.gender = gender;
-    if (fitnessLevel !== undefined) updateData.fitnessLevel = fitnessLevel;
-    if (goal !== undefined) updateData.goal = goal;
-    if (availableDays !== undefined) updateData.availableDays = availableDays ? parseInt(availableDays) : null;
-    if (equipment !== undefined) updateData.equipment = equipment;
-    if (injuries !== undefined) updateData.injuries = injuries;
-    if (workoutPreferences !== undefined) updateData.workoutPreferences = workoutPreferences;
-    if (dietaryRestrictions !== undefined) updateData.dietaryRestrictions = dietaryRestrictions;
-    if (foodPreferences !== undefined) updateData.foodPreferences = foodPreferences;
+    try {
+      if (name !== undefined) updateData.name = name;
+
+      const weightValue = parseNumericField(weight, 'weight', { allowNull: true, min: 0 });
+      if (weightValue !== undefined) updateData.weight = weightValue;
+
+      const heightValue = parseNumericField(height, 'height', { allowNull: true, min: 0 });
+      if (heightValue !== undefined) updateData.height = heightValue;
+
+      if (birthdate !== undefined) {
+        updateData.birthdate = birthdate || null;
+      }
+
+      if (gender !== undefined) updateData.gender = gender;
+      if (fitnessLevel !== undefined) updateData.fitnessLevel = fitnessLevel;
+      if (goal !== undefined) updateData.goal = goal;
+
+      const availableDaysValue = parseNumericField(availableDays, 'availableDays', {
+        integer: true,
+        allowNull: true,
+        min: 0,
+      });
+      if (availableDaysValue !== undefined) updateData.availableDays = availableDaysValue;
+
+      if (equipment !== undefined) updateData.equipment = equipment;
+      if (injuries !== undefined) updateData.injuries = injuries;
+      if (workoutPreferences !== undefined) updateData.workoutPreferences = workoutPreferences;
+      if (dietaryRestrictions !== undefined) updateData.dietaryRestrictions = dietaryRestrictions;
+      if (foodPreferences !== undefined) updateData.foodPreferences = foodPreferences;
+    } catch (validationError) {
+      return res.status(400).json({ message: validationError.message });
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: parseInt(userId) },
       data: updateData
     });
-    
-    console.log("Usuário atualizado com sucesso:", updatedUser);
     
     res.json({
       id: updatedUser.id,
@@ -265,31 +336,45 @@ router.put('/profile/nutrition-goals', auth, async (req, res) => {
   try {
     const userId = parseInt(req.user.id);
     const { calories, protein, carbs, fat } = req.body;
+
+    if (Number.isNaN(userId)) {
+      return res.status(400).json({ message: 'Usuário inválido' });
+    }
     
-    console.log("Dados de metas recebidos:", { calories, protein, carbs, fat });
-    console.log("ID do usuário:", userId);
+    let nutritionData;
+    try {
+      nutritionData = {
+        calories: parseNumericField(calories, 'calories', {
+          integer: true,
+          required: true,
+          min: 0,
+        }),
+        protein: parseNumericField(protein, 'protein', {
+          integer: true,
+          required: true,
+          min: 0,
+        }),
+        carbs: parseNumericField(carbs, 'carbs', {
+          integer: true,
+          required: true,
+          min: 0,
+        }),
+        fat: parseNumericField(fat, 'fat', { integer: true, required: true, min: 0 }),
+      };
+    } catch (validationError) {
+      return res.status(400).json({ message: validationError.message });
+    }
     
-    // Converter para os tipos corretos
-    const nutritionData = {
-      calories: parseInt(calories),
-      protein: parseInt(protein), 
-      carbs: parseInt(carbs),
-      fat: parseInt(fat)
-    };
-    
-    // Verifique se já existem metas nutricionais
     let nutritionGoals = await prisma.nutritionGoals.findUnique({
       where: { userId }
     });
     
     if (nutritionGoals) {
-      // Atualizar metas existentes
       nutritionGoals = await prisma.nutritionGoals.update({
         where: { userId },
         data: nutritionData
       });
     } else {
-      // Criar novas metas
       nutritionGoals = await prisma.nutritionGoals.create({
         data: {
           userId,
@@ -298,11 +383,9 @@ router.put('/profile/nutrition-goals', auth, async (req, res) => {
       });
     }
     
-    console.log("Metas nutricionais atualizadas:", nutritionGoals);
     res.json(nutritionGoals);
   } catch (error) {
     console.error('Erro ao atualizar metas nutricionais:', error.message);
-    console.error('Stack trace:', error.stack);
     res.status(500).json({ 
       message: 'Erro no servidor ao atualizar metas',
       error: error.message 
