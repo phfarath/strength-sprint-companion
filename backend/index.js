@@ -1,13 +1,10 @@
 const express = require('express');
 const cors = require('cors');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('./prisma/client');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
-const prisma = new PrismaClient({
-  log: ['query', 'info', 'warn', 'error'],
-});
 const PORT = process.env.PORT || 5000;
 
 // Testar conexão com o banco no início do servidor

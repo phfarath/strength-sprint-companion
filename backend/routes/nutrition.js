@@ -1,8 +1,43 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../prisma/client');
 const auth = require('../middleware/auth');
+
+const parseNumericField = (
+  value,
+  fieldName,
+  { allowNull = false, required = false, min, defaultValue } = {}
+) => {
+  if (value === undefined) {
+    if (required) {
+      throw new Error(`O campo ${fieldName} é obrigatório e deve ser numérico.`);
+    }
+    return undefined;
+  }
+
+  if (value === null || value === '') {
+    if (defaultValue !== undefined) {
+      return defaultValue;
+    }
+
+    if (!allowNull) {
+      throw new Error(`O campo ${fieldName} é obrigatório e deve ser numérico.`);
+    }
+    return null;
+  }
+
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    throw new Error(`O campo ${fieldName} deve ser um número válido.`);
+  }
+
+  if (min !== undefined && numericValue < min) {
+    throw new Error(`O campo ${fieldName} deve ser maior ou igual a ${min}.`);
+  }
+
+  return numericValue;
+};
 
 function calculateMealNutrition(meal) {
   return meal.mealFoods.reduce((totals, mf) => {
@@ -80,8 +115,6 @@ router.get('/foods', auth, async (req, res) => {
 // Corrigindo a rota POST /foods
 router.post('/foods', auth, async (req, res) => {
   try {
-    console.log('Corpo da requisição recebida:', req.body);
-    
     const { name, weight, calories, protein, carbs, fat, isPublic } = req.body;
     
     if (!name) {
@@ -90,25 +123,34 @@ router.post('/foods', auth, async (req, res) => {
 
     const userId = parseInt(req.user.id);
     
-    // Garantindo que não haja valores NaN
+    let parsedValues;
+    try {
+      parsedValues = {
+        weight: parseNumericField(weight, 'weight', { min: 0, defaultValue: 0 }),
+        calories: parseNumericField(calories, 'calories', { min: 0, defaultValue: 0 }),
+        protein: parseNumericField(protein, 'protein', { min: 0, defaultValue: 0 }),
+        carbs: parseNumericField(carbs, 'carbs', { min: 0, defaultValue: 0 }),
+        fat: parseNumericField(fat, 'fat', { min: 0, defaultValue: 0 }),
+      };
+    } catch (validationError) {
+      return res.status(400).json({ message: validationError.message });
+    }
+
     const foodData = {
       name,
-      weight: parseFloat(weight || 0),
-      calories: parseFloat(calories || 0),
-      protein: parseFloat(protein || 0),
-      carbs: parseFloat(carbs || 0),
-      fat: parseFloat(fat || 0),
-      is_public: Boolean(isPublic), // <- ajustado
+      weight: parsedValues.weight,
+      calories: parsedValues.calories,
+      protein: parsedValues.protein,
+      carbs: parsedValues.carbs,
+      fat: parsedValues.fat,
+      is_public: Boolean(isPublic),
       userId: userId
     };
 
-    console.log('Dados formatados para criar alimento:', foodData);
-    
     const food = await prisma.food.create({
       data: foodData
     });
     
-    console.log('Alimento criado com sucesso:', food);
     res.status(201).json(mapFood(food));
   } catch (error) {
     console.error('Erro completo ao criar alimento:', error);
@@ -125,7 +167,6 @@ router.put('/foods/:id', auth, async (req, res) => {
     const id = parseInt(req.params.id);
     const { name, weight, calories, protein, carbs, fat, isPublic } = req.body;
     
-    // Verificar se o alimento existe e pertence ao usuário
     const existingFood = await prisma.food.findFirst({
       where: {
         id,
@@ -136,18 +177,37 @@ router.put('/foods/:id', auth, async (req, res) => {
     if (!existingFood) {
       return res.status(404).json({ message: 'Alimento não encontrado ou não pertence a este usuário' });
     }
+
+    let parsedValues;
+    try {
+      parsedValues = {
+        weight: parseNumericField(weight, 'weight', { min: 0, defaultValue: 0 }),
+        calories: parseNumericField(calories, 'calories', { min: 0, defaultValue: 0 }),
+        protein: parseNumericField(protein, 'protein', { min: 0, defaultValue: 0 }),
+        carbs: parseNumericField(carbs, 'carbs', { min: 0, defaultValue: 0 }),
+        fat: parseNumericField(fat, 'fat', { min: 0, defaultValue: 0 }),
+      };
+    } catch (validationError) {
+      return res.status(400).json({ message: validationError.message });
+    }
+
+    const updateData = {};
+
+    if (name !== undefined) updateData.name = name;
+    if (parsedValues.weight !== undefined) updateData.weight = parsedValues.weight;
+    if (parsedValues.calories !== undefined) updateData.calories = parsedValues.calories;
+    if (parsedValues.protein !== undefined) updateData.protein = parsedValues.protein;
+    if (parsedValues.carbs !== undefined) updateData.carbs = parsedValues.carbs;
+    if (parsedValues.fat !== undefined) updateData.fat = parsedValues.fat;
+    if (isPublic !== undefined) updateData.is_public = Boolean(isPublic);
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ message: 'Nenhum dado válido fornecido para atualização.' });
+    }
     
     const updatedFood = await prisma.food.update({
       where: { id },
-      data: {
-        name,
-        weight: parseFloat(weight),
-        calories: parseFloat(calories || 0),
-        protein: parseFloat(protein || 0),
-        carbs: parseFloat(carbs || 0),
-        fat: parseFloat(fat || 0),
-        is_public: Boolean(isPublic) // <- ajustado
-      }
+      data: updateData
     });
     
     res.json(mapFood(updatedFood));
@@ -200,8 +260,6 @@ router.get('/meal-plans', auth, async (req, res) => {
   try {
     const userId = parseInt(req.user.id);
     
-    console.log('Buscando planos alimentares para o usuário:', userId);
-    
     const mealPlans = await prisma.mealPlan.findMany({
       where: { userId: userId },
       include: {
@@ -220,7 +278,6 @@ router.get('/meal-plans', auth, async (req, res) => {
       }
     });
     
-    console.log(`Encontrados ${mealPlans.length} planos alimentares`);
     const enriched = mealPlans.map(attachNutrition);
     res.json(enriched);
   } catch (error) {

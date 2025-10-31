@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../prisma/client');
 const auth = require('../middleware/auth');
 const {
   generateWorkoutPlan,
@@ -14,8 +14,6 @@ const {
   processUnifiedRequest
 } = require('../services/aiService');
 const { getUserActivitySummary } = require('../services/activitySummaryService');
-
-const prisma = new PrismaClient();
 
 const parseListField = (value) => {
   if (!value) return [];
