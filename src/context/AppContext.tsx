@@ -105,6 +105,9 @@ interface AppContextType {
   }) => Promise<any>;
   getAIFeedback: (limit?: number) => Promise<any>;
 
+  // AI Memory / Conversation History
+  getAIMemory: (mode?: string, limit?: number) => Promise<any>;
+
   // Activity Summary
   getActivitySummary: (userId: number, days?: number) => Promise<any>;
 
@@ -919,6 +922,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // AI Feedback
   submitAIFeedback: apiServices.submitAIFeedback,
   getAIFeedback: apiServices.getAIFeedback,
+
+  // AI Memory / Conversation History
+  getAIMemory: apiServices.getAIMemory,
 
   // Activity Summary
   getActivitySummary: apiServices.getActivitySummary,

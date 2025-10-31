@@ -11,14 +11,20 @@ import {
   Apple,
   Bot,
   ChevronLeft,
+  Clock,
   Dumbbell,
   FileText,
   Heart,
+  History,
   Loader2,
+  Menu,
   MessageCircle,
+  Plus,
+  RefreshCw,
   Send,
   Sparkles,
   User,
+  X,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { AIFeedbackWidget } from '@/components/ai/AIFeedbackWidget';
@@ -54,6 +60,15 @@ interface UnifiedAIResponse {
   structuredData?: any;
   planType?: string;
   planContext?: string;
+}
+
+interface ConversationHistoryItem {
+  id: number;
+  mode: string;
+  userMessage: string;
+  aiResponse: string;
+  metadata: string | null;
+  createdAt: string;
 }
 
 const INTENT_CONFIG: Record<AssistantIntent, { label: string; description: string; icon: LucideIcon }> = {
@@ -108,7 +123,7 @@ const formatDocumentPreview = (content: string) => {
 };
 
 const AIAssistant: React.FC = () => {
-  const { askAIUnified } = useAppContext();
+  const { askAIUnified, getAIMemory } = useAppContext();
   const { toast } = useToast();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -118,6 +133,9 @@ const AIAssistant: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastDetectedIntent, setLastDetectedIntent] = useState<AssistantIntent>('chat');
   const [lastConfidence, setLastConfidence] = useState<number | null>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<ConversationHistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -128,6 +146,69 @@ const AIAssistant: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const loadConversationHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const response = await getAIMemory(undefined, 50);
+      if (response.data?.success && response.data?.memory) {
+        setConversationHistory(response.data.memory);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível carregar o histórico de conversas.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const loadConversation = (item: ConversationHistoryItem) => {
+    // Limpar mensagens atuais
+    setMessages([]);
+    
+    // Adicionar mensagem do usuário
+    addMessage(item.userMessage, 'user', {
+      intent: normalizeIntent(item.mode),
+    });
+    
+    // Adicionar resposta da IA
+    try {
+      const metadata = item.metadata ? JSON.parse(item.metadata) : {};
+      addMessage(item.aiResponse, 'ai', {
+        intent: normalizeIntent(item.mode),
+        planContext: metadata.planContext,
+        planType: metadata.planType,
+      });
+    } catch (error) {
+      console.error('Erro ao parsear metadata:', error);
+      addMessage(item.aiResponse, 'ai', {
+        intent: normalizeIntent(item.mode),
+      });
+    }
+    
+    setLastDetectedIntent(normalizeIntent(item.mode));
+    setShowSidebar(false);
+  };
+
+  const handleNewConversation = () => {
+    setMessages([]);
+    setLastDetectedIntent('chat');
+    setLastConfidence(null);
+    setCurrentMessage('');
+    setDocumentContent('');
+    setShowDocumentInput(false);
+    setShowSidebar(false);
+  };
+
+  useEffect(() => {
+    if (showSidebar && conversationHistory.length === 0 && !isLoadingHistory) {
+      loadConversationHistory();
+    }
+  }, [showSidebar]);
 
   const addMessage = (
     content: string,
@@ -227,6 +308,11 @@ const AIAssistant: React.FC = () => {
         setDocumentContent('');
         setShowDocumentInput(false);
       }
+
+      // Recarregar histórico em background
+      if (conversationHistory.length > 0) {
+        loadConversationHistory();
+      }
     } catch (error) {
       console.error('Erro ao processar solicitação unificada:', error);
       toast({
@@ -243,6 +329,56 @@ const AIAssistant: React.FC = () => {
     setMessages([]);
     setLastDetectedIntent('chat');
     setLastConfidence(null);
+  };
+
+  const formatConversationTitle = (message: string): string => {
+    const trimmed = message.trim();
+    if (trimmed.length <= 60) return trimmed;
+    return `${trimmed.slice(0, 60)}...`;
+  };
+
+  const formatRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Agora';
+    if (diffMins < 60) return `${diffMins} min atrás`;
+    if (diffHours < 24) return `${diffHours}h atrás`;
+    if (diffDays === 1) return 'Ontem';
+    if (diffDays < 7) return `${diffDays} dias atrás`;
+    
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  };
+
+  const groupConversationsByDate = (conversations: ConversationHistoryItem[]) => {
+    const groups: { [key: string]: ConversationHistoryItem[] } = {};
+    
+    conversations.forEach((conv) => {
+      const date = new Date(conv.createdAt);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      
+      let groupKey: string;
+      if (date.toDateString() === today.toDateString()) {
+        groupKey = 'Hoje';
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        groupKey = 'Ontem';
+      } else {
+        groupKey = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+      }
+      
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+      groups[groupKey].push(conv);
+    });
+    
+    return groups;
   };
 
   const getPlaceholder = () => PLACEHOLDERS[lastDetectedIntent] || PLACEHOLDERS.chat;
@@ -287,12 +423,23 @@ const AIAssistant: React.FC = () => {
 
   const intentInfo = INTENT_CONFIG[lastDetectedIntent];
 
+  const groupedHistory = groupConversationsByDate(conversationHistory);
+
   return (
     <FullScreenLayout
       topbar={(
         <div className="h-14 w-full border-b bg-white/90 backdrop-blur">
           <div className="flex h-full w-full items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSidebar(!showSidebar)}
+                className="inline-flex items-center gap-2 text-gray-600 transition hover:text-gray-900"
+              >
+                {showSidebar ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                <span className="hidden sm:inline">Histórico</span>
+              </Button>
               <Link to="/dashboard" className="inline-flex items-center gap-2 text-gray-600 transition hover:text-gray-900">
                 <ChevronLeft className="h-5 w-5" />
                 <span className="hidden sm:inline">Voltar</span>
@@ -321,10 +468,117 @@ const AIAssistant: React.FC = () => {
         </div>
       )}
     >
-      <div className="flex h-full w-full flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-        <div className="flex-1 min-h-0 w-full overflow-hidden rounded-2xl border bg-gray-50">
+      <div className="flex h-full w-full overflow-hidden">
+        {/* Sidebar de Histórico */}
+        <motion.div
+          initial={false}
+          animate={{ x: showSidebar ? 0 : '-100%' }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          className="absolute z-20 h-full w-80 border-r bg-white shadow-lg lg:relative"
+        >
           <div className="flex h-full flex-col">
-            <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+            {/* Header da Sidebar */}
+            <div className="border-b bg-gray-50 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+                  <History className="h-5 w-5" />
+                  Conversas
+                </h2>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadConversationHistory}
+                    disabled={isLoadingHistory}
+                    title="Recarregar histórico"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isLoadingHistory ? 'animate-spin' : ''}`} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowSidebar(false)}
+                    className="lg:hidden"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <Button
+                onClick={handleNewConversation}
+                className="w-full bg-fitness-primary hover:bg-fitness-primary/90"
+                size="sm"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Conversa
+              </Button>
+            </div>
+
+            {/* Lista de Conversas */}
+            <div className="flex-1 overflow-y-auto p-3">
+              {isLoadingHistory ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-fitness-primary" />
+                </div>
+              ) : conversationHistory.length === 0 ? (
+                <div className="py-8 text-center text-sm text-gray-500">
+                  <MessageCircle className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+                  <p>Nenhuma conversa ainda</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(groupedHistory).map(([dateGroup, conversations]) => (
+                    <div key={dateGroup}>
+                      <h3 className="mb-2 px-2 text-xs font-semibold text-gray-500 uppercase">
+                        {dateGroup}
+                      </h3>
+                      <div className="space-y-1">
+                        {conversations.map((item) => {
+                          const itemIntentIcon = INTENT_CONFIG[normalizeIntent(item.mode)]?.icon || MessageCircle;
+                          const ItemIcon = itemIntentIcon;
+                          return (
+                            <button
+                              key={item.id}
+                              onClick={() => loadConversation(item)}
+                              className="w-full rounded-lg border border-transparent p-3 text-left transition hover:border-fitness-primary/20 hover:bg-fitness-primary/5"
+                            >
+                              <div className="flex items-start gap-2">
+                                <ItemIcon className="mt-0.5 h-4 w-4 flex-shrink-0 text-fitness-primary" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate">
+                                    {formatConversationTitle(item.userMessage)}
+                                  </p>
+                                  <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
+                                    <Clock className="h-3 w-3" />
+                                    <span>{formatRelativeTime(item.createdAt)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Overlay para mobile */}
+        {showSidebar && (
+          <div
+            className="absolute inset-0 z-10 bg-black/20 lg:hidden"
+            onClick={() => setShowSidebar(false)}
+          />
+        )}
+
+        {/* Conteúdo Principal */}
+        <div className="flex flex-1 flex-col gap-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+          <div className="flex-1 min-h-0 w-full overflow-hidden rounded-2xl border bg-gray-50">
+            <div className="flex h-full flex-col">
+              <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
               {messages.length === 0 ? (
                 <div className="flex h-full items-center justify-center">
                   <div className="max-w-lg text-center text-gray-500">
@@ -503,6 +757,7 @@ const AIAssistant: React.FC = () => {
               </Button>
             )}
           </div>
+        </div>
         </div>
       </div>
     </FullScreenLayout>
