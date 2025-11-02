@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../prisma/client');
 const auth = require('../middleware/auth');
-
-const prisma = new PrismaClient();
 
 // Get workout sessions for user
 router.get('/workout', auth, async (req, res) => {

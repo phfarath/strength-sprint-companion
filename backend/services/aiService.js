@@ -1,8 +1,6 @@
 const axios = require('axios');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../prisma/client');
 require('dotenv').config();
-
-const prisma = new PrismaClient();
 
 // Configuração do OpenRouter
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
