@@ -1149,4 +1149,688 @@ router.post('/unified', auth, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/ai/workout-plans
+ * Retorna planos de treino do usuário
+ */
+router.get('/workout-plans', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const limitParam = parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(limitParam) ? 10 : Math.min(Math.max(limitParam, 1), 50);
+
+    const plans = await prisma.workoutPlan.findMany({
+      where: { user_id: userId },
+      orderBy: { created_at: 'desc' },
+      take: limit,
+      include: {
+        exercises: {
+          include: {
+            exercise: true,
+          },
+          orderBy: { order_index: 'asc' },
+        },
+      },
+    });
+
+    res.json({ success: true, plans });
+  } catch (error) {
+    console.error('Erro ao recuperar planos de treino:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao recuperar planos de treino',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/ai/workout-plans/:id
+ * Retorna um plano de treino específico
+ */
+router.get('/workout-plans/:id', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const planId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de plano inválido',
+      });
+    }
+
+    const plan = await prisma.workoutPlan.findFirst({
+      where: {
+        id: planId,
+        user_id: userId,
+      },
+      include: {
+        exercises: {
+          include: {
+            exercise: true,
+          },
+          orderBy: { order_index: 'asc' },
+        },
+      },
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plano de treino não encontrado',
+      });
+    }
+
+    res.json({ success: true, plan });
+  } catch (error) {
+    console.error('Erro ao recuperar plano de treino:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao recuperar plano de treino',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * PATCH /api/ai/workout-plans/:id
+ * Atualiza um plano de treino existente
+ */
+router.patch('/workout-plans/:id', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const planId = parseInt(req.params.id, 10);
+    const { name, day_of_week, notes, exercises } = req.body;
+
+    if (Number.isNaN(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de plano inválido',
+      });
+    }
+
+    const existingPlan = await prisma.workoutPlan.findFirst({
+      where: {
+        id: planId,
+        user_id: userId,
+      },
+    });
+
+    if (!existingPlan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plano de treino não encontrado',
+      });
+    }
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (day_of_week !== undefined) updateData.day_of_week = parseInt(day_of_week, 10);
+    if (notes !== undefined) updateData.notes = notes;
+
+    await prisma.workoutPlan.update({
+      where: { id: planId },
+      data: updateData,
+    });
+
+    if (exercises && Array.isArray(exercises)) {
+      await prisma.workoutPlanExercise.deleteMany({
+        where: { workout_plan_id: planId },
+      });
+
+      for (let i = 0; i < exercises.length; i++) {
+        const ex = exercises[i];
+        
+        let exercise = await prisma.exercise.findFirst({
+          where: {
+            name: ex.name,
+            user_id: userId,
+          },
+        });
+
+        if (!exercise) {
+          exercise = await prisma.exercise.create({
+            data: {
+              name: ex.name,
+              muscle_group: ex.muscleGroup || ex.muscle_group || 'unknown',
+              user_id: userId,
+            },
+          });
+        }
+
+        await prisma.workoutPlanExercise.create({
+          data: {
+            workout_plan_id: planId,
+            exercise_id: exercise.id,
+            sets: normalizeNumber(ex.sets),
+            reps: normalizeNumber(ex.reps),
+            weight_kg: normalizeNumber(ex.weight_kg || ex.weight),
+            rest_seconds: normalizeRestSeconds(ex.rest_seconds || ex.rest),
+            order_index: i,
+          },
+        });
+      }
+    }
+
+    const finalPlan = await prisma.workoutPlan.findUnique({
+      where: { id: planId },
+      include: {
+        exercises: {
+          include: {
+            exercise: true,
+          },
+          orderBy: { order_index: 'asc' },
+        },
+      },
+    });
+
+    res.json({ success: true, plan: finalPlan });
+  } catch (error) {
+    console.error('Erro ao atualizar plano de treino:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao atualizar plano de treino',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/ai/workout-plans/:id
+ * Remove um plano de treino
+ */
+router.delete('/workout-plans/:id', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const planId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de plano inválido',
+      });
+    }
+
+    const existingPlan = await prisma.workoutPlan.findFirst({
+      where: {
+        id: planId,
+        user_id: userId,
+      },
+    });
+
+    if (!existingPlan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plano de treino não encontrado',
+      });
+    }
+
+    await prisma.workoutPlanExercise.deleteMany({
+      where: { workout_plan_id: planId },
+    });
+
+    await prisma.workoutPlan.delete({
+      where: { id: planId },
+    });
+
+    res.json({ success: true, message: 'Plano de treino removido com sucesso' });
+  } catch (error) {
+    console.error('Erro ao remover plano de treino:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao remover plano de treino',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/ai/meal-plans
+ * Retorna planos alimentares do usuário
+ */
+router.get('/meal-plans', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const limitParam = parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(limitParam) ? 10 : Math.min(Math.max(limitParam, 1), 50);
+
+    const plans = await prisma.mealPlan.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: {
+        meals: {
+          include: {
+            mealFoods: {
+              include: {
+                food: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    res.json({ success: true, plans });
+  } catch (error) {
+    console.error('Erro ao recuperar planos alimentares:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao recuperar planos alimentares',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/ai/meal-plans/:id
+ * Retorna um plano alimentar específico
+ */
+router.get('/meal-plans/:id', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const planId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de plano inválido',
+      });
+    }
+
+    const plan = await prisma.mealPlan.findFirst({
+      where: {
+        id: planId,
+        userId,
+      },
+      include: {
+        meals: {
+          include: {
+            mealFoods: {
+              include: {
+                food: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plano alimentar não encontrado',
+      });
+    }
+
+    res.json({ success: true, plan });
+  } catch (error) {
+    console.error('Erro ao recuperar plano alimentar:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao recuperar plano alimentar',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * PATCH /api/ai/meal-plans/:id
+ * Atualiza um plano alimentar existente
+ */
+router.patch('/meal-plans/:id', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const planId = parseInt(req.params.id, 10);
+    const { name, date, meals } = req.body;
+
+    if (Number.isNaN(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de plano inválido',
+      });
+    }
+
+    const existingPlan = await prisma.mealPlan.findFirst({
+      where: {
+        id: planId,
+        userId,
+      },
+    });
+
+    if (!existingPlan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plano alimentar não encontrado',
+      });
+    }
+
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (date !== undefined) updateData.date = date;
+
+    await prisma.mealPlan.update({
+      where: { id: planId },
+      data: updateData,
+    });
+
+    if (meals && Array.isArray(meals)) {
+      const existingMeals = await prisma.meal.findMany({
+        where: { mealPlanId: planId },
+        include: { mealFoods: true },
+      });
+
+      for (const existingMeal of existingMeals) {
+        await prisma.mealFood.deleteMany({
+          where: { mealId: existingMeal.id },
+        });
+      }
+
+      await prisma.meal.deleteMany({
+        where: { mealPlanId: planId },
+      });
+
+      for (const meal of meals) {
+        const mealRecord = await prisma.meal.create({
+          data: {
+            name: meal.name,
+            time: meal.time || null,
+            mealPlanId: planId,
+          },
+        });
+
+        if (Array.isArray(meal.items)) {
+          for (const item of meal.items) {
+            const food = await prisma.food.create({
+              data: {
+                name: item.name,
+                weight: normalizeNumber(item.quantity || item.weight),
+                calories: normalizeNumber(item.calories),
+                protein: normalizeNumber(item.protein),
+                carbs: normalizeNumber(item.carbs),
+                fat: normalizeNumber(item.fat),
+                userId,
+              },
+            });
+
+            await prisma.mealFood.create({
+              data: {
+                mealId: mealRecord.id,
+                foodId: food.id,
+                quantity: 1,
+              },
+            });
+          }
+        }
+      }
+    }
+
+    const finalPlan = await prisma.mealPlan.findUnique({
+      where: { id: planId },
+      include: {
+        meals: {
+          include: {
+            mealFoods: {
+              include: {
+                food: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    res.json({ success: true, plan: finalPlan });
+  } catch (error) {
+    console.error('Erro ao atualizar plano alimentar:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao atualizar plano alimentar',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/ai/meal-plans/:id
+ * Remove um plano alimentar
+ */
+router.delete('/meal-plans/:id', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const planId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de plano inválido',
+      });
+    }
+
+    const existingPlan = await prisma.mealPlan.findFirst({
+      where: {
+        id: planId,
+        userId,
+      },
+    });
+
+    if (!existingPlan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plano alimentar não encontrado',
+      });
+    }
+
+    const meals = await prisma.meal.findMany({
+      where: { mealPlanId: planId },
+    });
+
+    for (const meal of meals) {
+      await prisma.mealFood.deleteMany({
+        where: { mealId: meal.id },
+      });
+    }
+
+    await prisma.meal.deleteMany({
+      where: { mealPlanId: planId },
+    });
+
+    await prisma.mealPlan.delete({
+      where: { id: planId },
+    });
+
+    res.json({ success: true, message: 'Plano alimentar removido com sucesso' });
+  } catch (error) {
+    console.error('Erro ao remover plano alimentar:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao remover plano alimentar',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/ai/activity-trends
+ * Retorna tendências e análises de atividade do usuário
+ */
+router.get('/activity-trends', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const daysParam = parseInt(req.query.days, 10);
+    const days = Number.isNaN(daysParam) ? 30 : Math.min(Math.max(daysParam, 7), 90);
+
+    const activitySummary = await getUserActivitySummary(prisma, userId, {
+      days,
+      maxWorkoutSessions: 50,
+      maxNutritionDays: 30,
+      maxFeedbackEntries: 20,
+    });
+
+    const workoutCount = activitySummary.recentWorkoutSessions?.length || 0;
+    const avgWorkoutsPerWeek = workoutCount > 0 ? (workoutCount / days) * 7 : 0;
+
+    const nutritionDays = activitySummary.recentNutritionDays?.length || 0;
+    const avgNutritionTrackingPerWeek = nutritionDays > 0 ? (nutritionDays / days) * 7 : 0;
+
+    const feedbackCount = activitySummary.recentFeedback?.length || 0;
+    const avgFeedbackRating = feedbackCount > 0
+      ? activitySummary.recentFeedback.reduce((sum, fb) => sum + (fb.rating || 0), 0) / feedbackCount
+      : 0;
+
+    const workoutPlansCount = await prisma.workoutPlan.count({
+      where: { user_id: userId },
+    });
+
+    const mealPlansCount = await prisma.mealPlan.count({
+      where: { userId },
+    });
+
+    const trends = {
+      period: {
+        days,
+        startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(),
+        endDate: new Date().toISOString(),
+      },
+      workouts: {
+        totalSessions: workoutCount,
+        avgPerWeek: avgWorkoutsPerWeek.toFixed(1),
+        totalPlans: workoutPlansCount,
+      },
+      nutrition: {
+        totalDaysTracked: nutritionDays,
+        avgTrackingPerWeek: avgNutritionTrackingPerWeek.toFixed(1),
+        totalMealPlans: mealPlansCount,
+      },
+      feedback: {
+        totalEntries: feedbackCount,
+        avgRating: avgFeedbackRating.toFixed(1),
+      },
+      activitySummary,
+    };
+
+    res.json({ success: true, trends });
+  } catch (error) {
+    console.error('Erro ao gerar tendências de atividade:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao gerar tendências de atividade',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/ai/workout-plans/:id/feedback
+ * Adiciona feedback específico a um plano de treino
+ */
+router.post('/workout-plans/:id/feedback', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const planId = parseInt(req.params.id, 10);
+    const { rating, difficultyRating, adherence, notes, improvements } = req.body;
+
+    if (Number.isNaN(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de plano inválido',
+      });
+    }
+
+    const existingPlan = await prisma.workoutPlan.findFirst({
+      where: {
+        id: planId,
+        user_id: userId,
+      },
+    });
+
+    if (!existingPlan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plano de treino não encontrado',
+      });
+    }
+
+    const feedback = await prisma.planFeedback.create({
+      data: {
+        userId,
+        planType: 'workout',
+        planReference: planId.toString(),
+        rating: rating ? parseInt(rating, 10) : null,
+        difficultyRating: difficultyRating ? parseInt(difficultyRating, 10) : null,
+        adherence: adherence ? parseInt(adherence, 10) : null,
+        notes: notes || null,
+        improvements: improvements || null,
+        metadata: JSON.stringify({ workoutPlanId: planId }),
+      },
+    });
+
+    res.status(201).json({ success: true, feedback });
+  } catch (error) {
+    console.error('Erro ao adicionar feedback ao plano de treino:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao adicionar feedback ao plano de treino',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/ai/meal-plans/:id/feedback
+ * Adiciona feedback específico a um plano alimentar
+ */
+router.post('/meal-plans/:id/feedback', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const planId = parseInt(req.params.id, 10);
+    const { rating, difficultyRating, adherence, notes, improvements } = req.body;
+
+    if (Number.isNaN(planId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de plano inválido',
+      });
+    }
+
+    const existingPlan = await prisma.mealPlan.findFirst({
+      where: {
+        id: planId,
+        userId,
+      },
+    });
+
+    if (!existingPlan) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plano alimentar não encontrado',
+      });
+    }
+
+    const feedback = await prisma.planFeedback.create({
+      data: {
+        userId,
+        planType: 'nutrition',
+        planReference: planId.toString(),
+        rating: rating ? parseInt(rating, 10) : null,
+        difficultyRating: difficultyRating ? parseInt(difficultyRating, 10) : null,
+        adherence: adherence ? parseInt(adherence, 10) : null,
+        notes: notes || null,
+        improvements: improvements || null,
+        metadata: JSON.stringify({ mealPlanId: planId }),
+      },
+    });
+
+    res.status(201).json({ success: true, feedback });
+  } catch (error) {
+    console.error('Erro ao adicionar feedback ao plano alimentar:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao adicionar feedback ao plano alimentar',
+      error: error.message,
+    });
+  }
+});
+
 module.exports = router;
