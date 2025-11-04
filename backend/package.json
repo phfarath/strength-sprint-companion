@@ -4,7 +4,12 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "jest --testTimeout=10000",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:sprint1": "jest --testTimeout=10000 sprint1-features.test.js",
+    "verify:sprint1": "node test/verify-sprint1-implementations.js"
   },
   "keywords": [],
   "author": "",
