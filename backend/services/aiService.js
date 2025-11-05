@@ -670,6 +670,8 @@ async function saveUserMemory(userId, mode, userMessage, aiResponse, metadata = 
   try {
     const serializedMetadata = metadata ? JSON.stringify(metadata) : null;
 
+    // Armazenar a resposta como está (pode ser markdown ou JSON)
+    // O frontend será responsável por detectar e converter se necessário
     const memory = await prisma.userMemory.create({
       data: {
         userId,

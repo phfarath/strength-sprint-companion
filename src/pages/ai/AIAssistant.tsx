@@ -102,13 +102,140 @@ const AIAssistant: React.FC = () => {
     }
   };
 
+  const convertJsonToMarkdown = (content: string) => {
+    try {
+      const parsed = JSON.parse(content);
+      
+      // Detectar tipo de plano baseado na estrutura
+      if (parsed.plan && Array.isArray(parsed.plan)) {
+        // Plano de treino
+        return formatWorkoutPlanMarkdown(parsed);
+      } else if (parsed.meals && Array.isArray(parsed.meals)) {
+        // Plano alimentar
+        return formatMealPlanMarkdown(parsed);
+      } else if (parsed.program && parsed.phases) {
+        // Programa nutricional
+        return formatNutritionProgramMarkdown(parsed);
+      }
+      
+      // Se não reconhecer o formato, retorna o JSON original
+      return content;
+    } catch (error) {
+      // Se não for JSON válido, retorna como está
+      return content;
+    }
+  };
+
+  const formatWorkoutPlanMarkdown = (planData: any): string => {
+    if (!planData.plan || !Array.isArray(planData.plan)) {
+      return 'Plano de treino gerado com sucesso!';
+    }
+
+    const formattedDays = planData.plan.map((day: any) => {
+      const dayName = day.day || day.name || 'Treino';
+      const exercises = Array.isArray(day.exercises)
+        ? day.exercises.map((ex: any, idx: number) => 
+            `${idx + 1}. **${ex.name || 'Exercício'}** - ${ex.sets || 0} séries x ${ex.reps || 0} reps${ex.rest ? ` (${ex.rest}s descanso)` : ''}`
+          ).join('\n')
+        : '  Nenhum exercício';
+      
+      const notes = day.notes ? `\n\n*Obs: ${day.notes}*` : '';
+      return `### ${dayName}\n\n${exercises}${notes}`;
+    }).join('\n\n');
+
+    const coachingNotes = planData.coachingNotes 
+      ? `\n\n### 📝 Observações do Treinador\n\n${planData.coachingNotes}`
+      : '';
+
+    return `## 🏋️ Plano de Treino Gerado\n\n${formattedDays}${coachingNotes}`;
+  };
+
+  const formatMealPlanMarkdown = (planData: any): string => {
+    if (!planData.meals || !Array.isArray(planData.meals)) {
+      return 'Plano alimentar gerado com sucesso!';
+    }
+
+    const formattedMeals = planData.meals.map((meal: any) => {
+      const mealName = meal.name || 'Refeição';
+      const mealTime = meal.time ? ` (${meal.time})` : '';
+      const items = Array.isArray(meal.items)
+        ? meal.items.map((item: any, idx: number) => {
+            const macros = [];
+            if (item.calories) macros.push(`${item.calories} kcal`);
+            if (item.protein) macros.push(`${item.protein}g prot`);
+            if (item.carbs) macros.push(`${item.carbs}g carb`);
+            if (item.fat) macros.push(`${item.fat}g gord`);
+            
+            const macroInfo = macros.length > 0 ? ` *(${macros.join(', ')})*` : '';
+            const quantity = item.quantity ? ` - ${item.quantity}g` : '';
+            
+            return `${idx + 1}. **${item.name}**${quantity}${macroInfo}`;
+          }).join('\n')
+        : '  Nenhum item';
+      
+      const notes = meal.notes ? `\n\n*Obs: ${meal.notes}*` : '';
+      return `### ${mealName}${mealTime}\n\n${items}${notes}`;
+    }).join('\n\n');
+
+    let summary = '';
+    if (planData.dailySummary) {
+      const s = planData.dailySummary;
+      summary = `\n\n### 📊 Resumo Diário\n\n- **Calorias:** ${s.calories || 0} kcal\n- **Proteína:** ${s.protein || 0}g\n- **Carboidratos:** ${s.carbs || 0}g\n- **Gorduras:** ${s.fat || 0}g`;
+    }
+
+    const coachingNotes = planData.coachingNotes
+      ? `\n\n### 📝 Observações do Nutricionista\n\n${planData.coachingNotes}`
+      : '';
+
+    return `## 🍎 Plano Alimentar Gerado\n\n${formattedMeals}${summary}${coachingNotes}`;
+  };
+
+  const formatNutritionProgramMarkdown = (programData: any): string => {
+    const program = programData.program || {};
+    let content = `## 📋 ${program.name || 'Programa Nutricional'}\n\n`;
+    content += `**Tipo:** ${program.type || 'N/A'} | **Duração:** ${program.duration || 'N/A'} semanas\n\n`;
+    
+    if (programData.phases && Array.isArray(programData.phases)) {
+      programData.phases.forEach((phase: any) => {
+        content += `### Fase ${phase.phase}: ${phase.name || 'Sem nome'}\n\n`;
+        content += `**Semanas:** ${(phase.weeks || []).join(', ')}\n\n`;
+        
+        if (phase.weeklyGoals) {
+          content += `**Metas Semanais:**\n`;
+          content += `- Calorias: ${phase.weeklyGoals.calories || 0} kcal\n`;
+          content += `- Proteína: ${phase.weeklyGoals.protein || 0}g\n`;
+          content += `- Carboidratos: ${phase.weeklyGoals.carbs || 0}g\n`;
+          content += `- Gorduras: ${phase.weeklyGoals.fat || 0}g\n\n`;
+        }
+        
+        if (phase.guidelines) {
+          content += `**Diretrizes:** ${phase.guidelines}\n\n`;
+        }
+        
+        if (phase.notes) {
+          content += `*${phase.notes}*\n\n`;
+        }
+      });
+    }
+    
+    if (programData.coachingNotes) {
+      content += `### 📝 Observações\n\n${programData.coachingNotes}`;
+    }
+    
+    return content;
+  };
+
   const loadConversation = (item: ConversationHistoryItem) => {
     setMessages([]);
     addMessage(item.userMessage, 'user');
     
     try {
       const metadata = item.metadata ? JSON.parse(item.metadata) : {};
-      addMessage(item.aiResponse, 'ai', {
+      
+      // Converter JSON para Markdown se necessário
+      const convertedResponse = convertJsonToMarkdown(item.aiResponse);
+      
+      addMessage(convertedResponse, 'ai', {
         planContext: metadata.planContext,
         planType: metadata.planType,
       });
