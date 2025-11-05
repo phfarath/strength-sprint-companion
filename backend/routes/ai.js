@@ -254,10 +254,12 @@ const persistAIMealPlan = async (userId, planData, planContext = null) => {
 /**
  * POST /api/ai/workout-plans
  * Gera um plano de treino personalizado com base nos dados do usuário
+ * Agora retorna para confirmação ao invés de cadastrar automaticamente
  */
 router.post('/workout-plans', auth, async (req, res) => {
   try {
     const userId = parseInt(req.user.id, 10);
+    const { confirm = false } = req.body; // Flag para confirmar e cadastrar
 
     // Buscar dados do usuário
     const user = await prisma.user.findUnique({
@@ -329,28 +331,19 @@ router.post('/workout-plans', auth, async (req, res) => {
       });
     }
 
-    const dayToIndex = (day) => {
-      const map = {
-        sunday: 0,
-        monday: 1,
-        tuesday: 2,
-        wednesday: 3,
-        thursday: 4,
-        friday: 5,
-        saturday: 6,
-        domingo: 0,
-        segunda: 1,
-        terça: 2,
-        terca: 2,
-        quarta: 3,
-        quinta: 4,
-        sexta: 5,
-        sábado: 6,
-        sabado: 6,
-      };
-      return map[day?.toLowerCase?.()] ?? 0;
-    };
+    // Se não confirmado, retornar apenas para visualização
+    if (!confirm) {
+      return res.json({
+        success: true,
+        workoutPlan: planData,
+        activitySummary,
+        planContext,
+        requiresConfirmation: true,
+        message: 'Plano gerado com sucesso! Clique em "Confirmar e Adicionar ao Calendário" para salvar.',
+      });
+    }
 
+    // Se confirmado, cadastrar no banco de dados
     const createdPlans = [];
 
     for (const dayPlan of planData.plan) {
@@ -422,6 +415,7 @@ router.post('/workout-plans', auth, async (req, res) => {
       workoutPlan: createdPlans,
       activitySummary,
       planContext,
+      message: 'Plano de treino confirmado e salvo com sucesso!',
     });
   } catch (error) {
     console.error('Erro ao gerar plano de treino:', error);
@@ -436,10 +430,12 @@ router.post('/workout-plans', auth, async (req, res) => {
 /**
  * POST /api/ai/meal-plans
  * Gera um plano alimentar personalizado com base nos dados do usuário
+ * Agora retorna para confirmação ao invés de cadastrar automaticamente
  */
 router.post('/meal-plans', auth, async (req, res) => {
   try {
     const userId = parseInt(req.user.id, 10);
+    const { confirm = false } = req.body; // Flag para confirmar e cadastrar
     
     // Buscar dados do usuário e metas nutricionais
     const user = await prisma.user.findUnique({
@@ -501,6 +497,19 @@ router.post('/meal-plans', auth, async (req, res) => {
       });
     }
 
+    // Se não confirmado, retornar apenas para visualização
+    if (!confirm) {
+      return res.json({
+        success: true,
+        mealPlan: parsedPlan,
+        activitySummary,
+        planContext,
+        requiresConfirmation: true,
+        message: 'Plano gerado com sucesso! Clique em "Confirmar e Adicionar ao Calendário" para salvar.',
+      });
+    }
+
+    // Se confirmado, cadastrar no banco de dados
     const storedPlan = await prisma.$transaction(async (tx) => {
       const plan = await tx.mealPlan.create({
         data: {
@@ -574,6 +583,7 @@ router.post('/meal-plans', auth, async (req, res) => {
       mealPlan: storedPlan,
       activitySummary,
       planContext,
+      message: 'Plano alimentar confirmado e salvo com sucesso!',
     });
   } catch (error) {
     console.error('Erro ao gerar plano alimentar:', error);

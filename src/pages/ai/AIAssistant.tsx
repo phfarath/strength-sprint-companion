@@ -34,6 +34,7 @@ interface ChatMessage {
   planContent?: any;
   planContext?: string;
   planType?: string;
+  requiresConfirmation?: boolean;
 }
 
 interface UnifiedAIResponse {
@@ -42,6 +43,7 @@ interface UnifiedAIResponse {
   structuredData?: any;
   planType?: string;
   planContext?: string;
+  requiresConfirmation?: boolean;
 }
 
 interface ConversationHistoryItem {
@@ -72,6 +74,8 @@ const AIAssistant: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ConversationHistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<ChatMessage | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -268,6 +272,7 @@ const AIAssistant: React.FC = () => {
       planContent?: any;
       planContext?: string;
       planType?: string;
+      requiresConfirmation?: boolean;
     } = {}
   ): string => {
     const messageId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -279,10 +284,77 @@ const AIAssistant: React.FC = () => {
       planContent: options.planContent,
       planContext: options.planContext,
       planType: options.planType,
+      requiresConfirmation: options.requiresConfirmation,
     };
 
     setMessages((prev) => [...prev, newMessage]);
     return messageId;
+  };
+
+  const handleConfirmPlan = async () => {
+    if (!pendingConfirmation) return;
+
+    setIsConfirming(true);
+    try {
+      const endpoint = pendingConfirmation.planType === 'workout' 
+        ? '/api/ai/workout-plans' 
+        : '/api/ai/meal-plans';
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          confirm: true,
+          planContext: pendingConfirmation.planContext,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao confirmar plano');
+      }
+
+      const result = await response.json();
+
+      // Remover mensagem pendente e adicionar mensagem de sucesso
+      setMessages((prev) => prev.filter((msg) => msg.id !== pendingConfirmation.id));
+      
+      addMessage(
+        `✅ ${result.message || 'Plano salvo com sucesso e adicionado ao seu calendário!'}`,
+        'ai',
+        {
+          planContext: pendingConfirmation.planContext,
+          planType: pendingConfirmation.planType,
+        }
+      );
+
+      setPendingConfirmation(null);
+      toast({
+        title: 'Sucesso',
+        description: 'Plano confirmado e salvo com sucesso!',
+      });
+    } catch (error) {
+      console.error('Erro ao confirmar plano:', error);
+      toast({
+        title: 'Erro',
+        description: 'Falha ao confirmar e salvar o plano. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  const handleDiscardPlan = () => {
+    if (!pendingConfirmation) return;
+    setMessages((prev) => prev.filter((msg) => msg.id !== pendingConfirmation.id));
+    setPendingConfirmation(null);
+    toast({
+      title: 'Descartado',
+      description: 'Plano foi descartado.',
+    });
   };
 
   const handleSendMessage = async () => {
@@ -317,11 +389,20 @@ const AIAssistant: React.FC = () => {
         throw new Error(result?.response || 'Erro ao processar a solicitação.');
       }
 
-      addMessage(result.response || 'Não foi possível gerar uma resposta.', 'ai', {
+      const messageId = addMessage(result.response || 'Não foi possível gerar uma resposta.', 'ai', {
         planContent: result.structuredData,
         planContext: result.planContext,
         planType: result.planType,
+        requiresConfirmation: result.requiresConfirmation,
       });
+
+      // Se requer confirmação, armazenar para posterior confirmação
+      if (result.requiresConfirmation) {
+        const message = messages.find((m) => m.id === messageId);
+        if (message) {
+          setPendingConfirmation(message);
+        }
+      }
 
       setCurrentMessage('');
 
@@ -607,7 +688,35 @@ const AIAssistant: React.FC = () => {
                           <div className={`mt-2 text-xs text-gray-500 ${message.type === 'user' ? 'text-right' : 'text-left'}`}>
                             {message.timestamp.toLocaleTimeString()}
                           </div>
-                          {message.type === 'ai' && message.planContext && message.planType && (
+                          {message.type === 'ai' && message.requiresConfirmation && (
+                            <div className="mt-4 flex gap-2">
+                              <Button
+                                onClick={handleConfirmPlan}
+                                disabled={isConfirming}
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                                size="sm"
+                              >
+                                {isConfirming ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Confirmando...
+                                  </>
+                                ) : (
+                                  '✅ Confirmar e Adicionar ao Calendário'
+                                )}
+                              </Button>
+                              <Button
+                                onClick={handleDiscardPlan}
+                                disabled={isConfirming}
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                              >
+                                ❌ Descartar
+                              </Button>
+                            </div>
+                          )}
+                          {message.type === 'ai' && message.planContext && message.planType && !message.requiresConfirmation && (
                             <div className="mt-3">
                               <AIFeedbackWidget
                                 planContext={message.planContext}

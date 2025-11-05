@@ -119,6 +119,36 @@ async function callOpenRouter(
 }
 
 /**
+ * Detecta se o pedido é para um dia específico e extrai as informações
+ * @param {string} request - A solicitação do usuário
+ * @returns {Object} - { isSpecificDay: boolean, dayName: string, focus: string }
+ */
+function parseWorkoutRequest(request) {
+  if (!request) return { isSpecificDay: false, dayName: null, focus: null };
+
+  const daysOfWeek = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+  const requestLower = request.toLowerCase();
+  
+  let detectedDay = null;
+  for (const day of daysOfWeek) {
+    if (requestLower.includes(day + '-feira') || requestLower.includes(day)) {
+      detectedDay = day.charAt(0).toUpperCase() + day.slice(1);
+      break;
+    }
+  }
+
+  if (detectedDay) {
+    return {
+      isSpecificDay: true,
+      dayName: detectedDay,
+      focus: request
+    };
+  }
+
+  return { isSpecificDay: false, dayName: null, focus: null };
+}
+
+/**
  * Gera um plano de treino personalizado com base nos dados do usuário
  * @param {Object} userData - Dados do usuário
  * @param {Object} options - Opções adicionais (activitySummary, etc.)
@@ -127,6 +157,11 @@ async function callOpenRouter(
 async function generateWorkoutPlan(userData, options = {}) {
   const { activitySummary, userId, planContext, requestSummary } = options;
   const resolvedUserId = userId || userData?.id || null;
+
+  // Parse request to detect if it's for a specific day
+  const requestInfo = parseWorkoutRequest(userData.customRequest || requestSummary);
+  const isSpecificDay = requestInfo.isSpecificDay;
+  const specificDay = requestInfo.dayName;
 
   const adaptiveContext = await buildAdaptiveContext({
     userId: resolvedUserId,
@@ -167,12 +202,18 @@ ${truncateText(userData.customRequest || requestSummary, 280)}
 `
     : '';
 
+  // Adjust instructions based on whether it's a specific day or full week
+  const planScopeInstruction = isSpecificDay
+    ? `Gere um plano de treino APENAS para ${specificDay}, não para toda a semana. Inclua apenas este dia no resultado.`
+    : `Gere um plano de treino personalizado para uma semana completa.`;
+
   const prompt = `
     Você é um treinador inteligente especializado em progressão personalizada. Utilize o contexto histórico para evitar repetição e ajustar a intensidade.
     ${adaptiveContext}
     ${activityContext}
 ${customRequestSection}
-    Com base nas informações acima, crie um plano de treino personalizado para uma semana.
+    Com base nas informações acima, ${planScopeInstruction}
+    
     IMPORTANTE: Se estiver gerando coachingNotes, formate-as em markdown (use ### para títulos, - para listas, ** para negrito).
 
     Perfil do Usuário:
