@@ -87,6 +87,8 @@ export const apiServices = {
   // AI Services
   generateWorkoutPlan: (userData: any) => api.post('/ai/workout-plans', userData),
   generateMealPlan: (userData: any) => api.post('/ai/meal-plans', userData),
+  generateSingleMeal: (data: any) => api.post('/ai/nutrition/single-meal', data),
+  generateNutritionProgram: (data: any) => api.post('/ai/nutrition/program', data),
   generateHealthAssessment: (healthData: any) => api.post('/ai/health-assessment', healthData),
   analyzeHealthDocument: (documentData: any) => api.post('/ai/document-analysis', documentData),
   askAIQuestion: (questionData: any) => api.post('/ai/chat', questionData),
