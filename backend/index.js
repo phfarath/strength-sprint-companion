@@ -26,7 +26,10 @@ async function testDatabaseConnection() {
   }
 }
 
-testDatabaseConnection();
+// Skip database connection in test environment
+if (process.env.NODE_ENV !== 'test') {
+  testDatabaseConnection();
+}
 
 // Middleware
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -81,9 +84,11 @@ app.use((err, req, res, next) => {
   res.status(500).send('Something broke!');
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
 
 module.exports = app;
