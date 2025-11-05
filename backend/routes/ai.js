@@ -5,6 +5,8 @@ const auth = require('../middleware/auth');
 const {
   generateWorkoutPlan,
   generateMealPlan,
+  generateSingleMeal,
+  generateNutritionProgram,
   generateHealthAssessment,
   analyzeHealthDocument,
   answerQuestion,
@@ -578,6 +580,177 @@ router.post('/meal-plans', auth, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Erro ao gerar plano alimentar',
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/ai/nutrition/single-meal
+ * Gera uma única refeição personalizada
+ */
+router.post('/nutrition/single-meal', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const { generateSingleMeal } = require('../services/aiService');
+    
+    // Buscar dados do usuário e metas nutricionais
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { nutritionGoals: true }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+    
+    const age = user.birthdate ? Math.floor((new Date() - new Date(user.birthdate)) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+    
+    const userData = {
+      id: user.id,
+      name: user.name,
+      age,
+      weight: user.weight,
+      height: user.height,
+      gender: user.gender,
+      goal: user.goal,
+      fitnessLevel: user.fitnessLevel,
+      dietaryRestrictions: formatListField(user.dietaryRestrictions) || 'Nenhuma informada',
+      foodPreferences: formatListField(user.foodPreferences) || 'Nenhuma informada',
+      customRequest: req.body?.customRequest || null,
+    };
+    
+    const nutritionalGoals = req.body?.nutritionalGoals || user.nutritionGoals || {};
+    const mealType = req.body?.mealType || 'almoço';
+    const planContext = req.body?.planContext || `ai-single-meal-${Date.now()}`;
+
+    const activitySummary = await getUserActivitySummary(prisma, userId, {
+      days: req.body?.activitySummary?.range?.days || 14,
+    });
+
+    const aiResponse = await generateSingleMeal(userData, nutritionalGoals, {
+      mealType,
+      activitySummary,
+      userId,
+      planContext,
+      requestSummary: userData.customRequest || req.body?.notes || null,
+    });
+
+    let parsedMeal;
+    try {
+      parsedMeal = JSON.parse(aiResponse);
+    } catch (parseError) {
+      console.error('Erro ao parsear refeição da IA:', parseError);
+      return res.status(500).json({
+        success: false,
+        message: 'Formato de refeição inválido retornado pela IA'
+      });
+    }
+
+    res.json({
+      success: true,
+      meal: parsedMeal.meal,
+      mealSummary: parsedMeal.mealSummary,
+      coachingNotes: parsedMeal.coachingNotes,
+      planContext,
+    });
+  } catch (error) {
+    console.error('Erro ao gerar refeição:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao gerar refeição',
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/ai/nutrition/program
+ * Gera um programa nutricional completo (cutting, bulking, etc.)
+ */
+router.post('/nutrition/program', auth, async (req, res) => {
+  try {
+    const userId = parseInt(req.user.id, 10);
+    const { generateNutritionProgram } = require('../services/aiService');
+    
+    // Buscar dados do usuário e metas nutricionais
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { nutritionGoals: true }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Usuário não encontrado' });
+    }
+    
+    const age = user.birthdate ? Math.floor((new Date() - new Date(user.birthdate)) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+    
+    const userData = {
+      id: user.id,
+      name: user.name,
+      age,
+      weight: user.weight,
+      height: user.height,
+      gender: user.gender,
+      goal: user.goal,
+      fitnessLevel: user.fitnessLevel,
+      dietaryRestrictions: formatListField(user.dietaryRestrictions) || 'Nenhuma informada',
+      foodPreferences: formatListField(user.foodPreferences) || 'Nenhuma informada',
+      customRequest: req.body?.customRequest || null,
+    };
+    
+    const nutritionalGoals = req.body?.nutritionalGoals || user.nutritionGoals || {};
+    const programType = req.body?.programType || 'cutting'; // cutting, bulking, maintenance, recomp
+    const duration = req.body?.duration || 8; // weeks
+    const planContext = req.body?.planContext || `ai-nutrition-program-${Date.now()}`;
+
+    const activitySummary = await getUserActivitySummary(prisma, userId, {
+      days: req.body?.activitySummary?.range?.days || 14,
+    });
+
+    const aiResponse = await generateNutritionProgram(userData, nutritionalGoals, {
+      programType,
+      duration,
+      activitySummary,
+      userId,
+      planContext,
+      requestSummary: userData.customRequest || req.body?.notes || null,
+    });
+
+    let parsedProgram;
+    try {
+      parsedProgram = JSON.parse(aiResponse);
+    } catch (parseError) {
+      console.error('Erro ao parsear programa nutricional da IA:', parseError);
+      return res.status(500).json({
+        success: false,
+        message: 'Formato de programa inválido retornado pela IA'
+      });
+    }
+
+    // Save to memory
+    try {
+      await saveUserMemory(
+        userId,
+        'nutrition',
+        userData.customRequest || `Gerar programa nutricional ${programType} de ${duration} semanas`,
+        JSON.stringify(parsedProgram),
+        { planContext, planType: 'nutrition-program', programType, duration }
+      );
+    } catch (memoryError) {
+      console.error('Erro ao salvar memória do programa:', memoryError);
+    }
+
+    res.json({
+      success: true,
+      program: parsedProgram,
+      planContext,
+    });
+  } catch (error) {
+    console.error('Erro ao gerar programa nutricional:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erro ao gerar programa nutricional',
       error: error.message 
     });
   }

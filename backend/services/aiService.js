@@ -339,6 +339,203 @@ ${customRequestSection}
 }
 
 /**
+ * Gera uma única refeição personalizada
+ * @param {Object} userData - Dados do usuário
+ * @param {Object} nutritionalGoals - Metas nutricionais do usuário
+ * @param {Object} options - Opções adicionais (mealType, activitySummary, etc.)
+ * @returns {Promise<string>} - A refeição gerada
+ */
+async function generateSingleMeal(userData, nutritionalGoals, options = {}) {
+  const { mealType = 'almoço', activitySummary, userId, planContext, requestSummary } = options;
+  const resolvedUserId = userId || userData?.id || null;
+
+  const adaptiveContext = await buildAdaptiveContext({
+    userId: resolvedUserId,
+    mode: 'nutrition',
+    planType: 'single-meal',
+    activitySummary,
+  });
+
+  const customRequestSection = userData.customRequest || requestSummary
+    ? `
+Solicitação Específica do Usuário:
+${truncateText(userData.customRequest || requestSummary, 280)}
+`
+    : '';
+
+  const prompt = `
+    Você é um nutricionista inteligente especializado em personalização alimentar.
+    ${adaptiveContext}
+${customRequestSection}
+    Com base nas informações acima, crie uma refeição personalizada do tipo "${mealType}".
+    
+    Perfil do Usuário:
+    - Nome: ${userData.name || 'Não informado'}
+    - Idade: ${userData.age || 'Não informada'} anos
+    - Peso: ${userData.weight || 'Não informado'} kg
+    - Altura: ${userData.height || 'Não informada'} cm
+    - Gênero: ${userData.gender || 'Não informado'}
+    - Objetivo: ${userData.goal || 'Não informado'}
+    - Nível de atividade/treino: ${userData.fitnessLevel || 'Não informado'}
+    - Restrições alimentares: ${userData.dietaryRestrictions || 'Nenhuma informada'}
+    - Preferências alimentares: ${userData.foodPreferences || 'Nenhuma informada'}
+
+    Metas nutricionais diárias:
+    - Calorias: ${nutritionalGoals.calories || 'Não informado'} kcal
+    - Proteínas: ${nutritionalGoals.protein || 'Não informado'} g
+    - Carboidratos: ${nutritionalGoals.carbs || 'Não informado'} g
+    - Gorduras: ${nutritionalGoals.fat || 'Não informado'} g
+
+    Gere uma refeição balanceada do tipo "${mealType}" com valores aproximados para esta refeição considerando as metas diárias.
+    
+    Responda APENAS com JSON válido seguindo este formato:
+    {
+      "meal": {
+        "name": "Nome da refeição",
+        "time": "Horário sugerido",
+        "type": "${mealType}",
+        "items": [
+          {
+            "name": "Alimento",
+            "quantity": 0,
+            "unit": "g ou ml ou unidade",
+            "calories": 0,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 0
+          }
+        ],
+        "notes": "Orientações adicionais da refeição"
+      },
+      "mealSummary": {
+        "calories": 0,
+        "protein": 0,
+        "carbs": 0,
+        "fat": 0
+      },
+      "coachingNotes": "Dicas e orientações"
+    }
+    Não inclua nenhum texto fora do JSON.
+  `;
+
+  return await callOpenRouter(prompt, AI_MODELS.nutrition, 1500, {
+    metadata: {
+      planContext: planContext || null,
+    },
+  });
+}
+
+/**
+ * Gera um programa de cutting/bulking de múltiplas semanas
+ * @param {Object} userData - Dados do usuário
+ * @param {Object} nutritionalGoals - Metas nutricionais do usuário
+ * @param {Object} options - Opções adicionais (programType, duration, activitySummary, etc.)
+ * @returns {Promise<string>} - O programa nutricional gerado
+ */
+async function generateNutritionProgram(userData, nutritionalGoals, options = {}) {
+  const { programType = 'cutting', duration = 8, activitySummary, userId, planContext, requestSummary } = options;
+  const resolvedUserId = userId || userData?.id || null;
+
+  const adaptiveContext = await buildAdaptiveContext({
+    userId: resolvedUserId,
+    mode: 'nutrition',
+    planType: 'nutrition-program',
+    activitySummary,
+  });
+
+  const customRequestSection = userData.customRequest || requestSummary
+    ? `
+Solicitação Específica do Usuário:
+${truncateText(userData.customRequest || requestSummary, 280)}
+`
+    : '';
+
+  const programDescriptions = {
+    cutting: 'perda de gordura mantendo massa muscular',
+    bulking: 'ganho de massa muscular',
+    maintenance: 'manutenção do peso atual',
+    recomp: 'recomposição corporal (perder gordura e ganhar músculo simultaneamente)'
+  };
+
+  const prompt = `
+    Você é um nutricionista especializado em periodização nutricional e programas de longo prazo.
+    ${adaptiveContext}
+${customRequestSection}
+    Com base nas informações acima, crie um programa nutricional completo de ${duration} semanas focado em ${programDescriptions[programType] || programType}.
+    
+    Perfil do Usuário:
+    - Nome: ${userData.name || 'Não informado'}
+    - Idade: ${userData.age || 'Não informada'} anos
+    - Peso: ${userData.weight || 'Não informado'} kg
+    - Altura: ${userData.height || 'Não informada'} cm
+    - Gênero: ${userData.gender || 'Não informado'}
+    - Objetivo: ${userData.goal || 'Não informado'}
+    - Nível de atividade/treino: ${userData.fitnessLevel || 'Não informado'}
+    - Restrições alimentares: ${userData.dietaryRestrictions || 'Nenhuma informada'}
+    - Preferências alimentares: ${userData.foodPreferences || 'Nenhuma informada'}
+
+    Metas nutricionais base:
+    - Calorias: ${nutritionalGoals.calories || 'Não informado'} kcal
+    - Proteínas: ${nutritionalGoals.protein || 'Não informado'} g
+    - Carboidratos: ${nutritionalGoals.carbs || 'Não informado'} g
+    - Gorduras: ${nutritionalGoals.fat || 'Não informado'} g
+
+    Diretrizes para o programa:
+    1. Divida em fases (ex: 3 fases para um programa de 8 semanas)
+    2. Ajuste calorias e macros progressivamente conforme a fase
+    3. Para cutting: déficit calórico progressivo, mantendo proteína alta
+    4. Para bulking: superávit calórico moderado com ajustes semanais
+    5. Inclua estratégias como refeeds ou diet breaks se apropriado
+    6. Forneça diretrizes gerais para cada fase, não planos de refeições diários detalhados
+    
+    Responda APENAS com JSON válido seguindo este formato:
+    {
+      "program": {
+        "name": "Nome do Programa",
+        "type": "${programType}",
+        "duration": ${duration},
+        "startWeight": ${userData.weight || 0},
+        "targetWeight": 0,
+        "description": "Descrição geral do programa"
+      },
+      "phases": [
+        {
+          "phase": 1,
+          "name": "Nome da Fase",
+          "weeks": [1, 2, 3],
+          "weeklyGoals": {
+            "calories": 0,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 0
+          },
+          "guidelines": "Diretrizes nutricionais desta fase",
+          "mealSuggestions": [
+            "Sugestão de estrutura de refeição 1",
+            "Sugestão de estrutura de refeição 2"
+          ],
+          "notes": "Observações e dicas importantes"
+        }
+      ],
+      "generalGuidelines": {
+        "hydration": "Orientações de hidratação",
+        "supplements": ["Suplemento recomendado 1", "Suplemento recomendado 2"],
+        "cheatMeals": "Política de refeições livres",
+        "adjustments": "Como ajustar o plano com base no progresso"
+      },
+      "coachingNotes": "Resumo executivo e motivação em markdown"
+    }
+    Não inclua nenhum texto fora do JSON.
+  `;
+
+  return await callOpenRouter(prompt, AI_MODELS.nutrition, 2500, {
+    metadata: {
+      planContext: planContext || null,
+    },
+  });
+}
+
+/**
  * Realiza uma avaliação de saúde com base nos dados do usuário
  * @param {Object} userData - Dados do usuário
  * @param {Object} healthData - Dados de saúde do usuário
@@ -1138,6 +1335,8 @@ function formatMealPlanText(planData) {
 module.exports = {
   generateWorkoutPlan,
   generateMealPlan,
+  generateSingleMeal,
+  generateNutritionProgram,
   generateHealthAssessment,
   analyzeHealthDocument,
   answerQuestion,

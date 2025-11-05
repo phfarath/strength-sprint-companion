@@ -12,8 +12,9 @@ import { format } from 'date-fns';
 import MealPlanForm from '@/components/nutrition/MealPlanForm';
 import MealPlanFormWithAI from '@/components/nutrition/MealPlanFormWithAI';
 import FoodModal from '@/components/nutrition/FoodModal';
+import NutritionAIGenerator from '@/components/nutrition/NutritionAIGenerator';
 import { MealPlan } from '@/types';
-import { Edit, Trash, Plus, Calendar, Search, UtensilsCrossed, Apple } from 'lucide-react';
+import { Edit, Trash, Plus, Calendar, Search, UtensilsCrossed, Apple, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 
@@ -252,7 +253,7 @@ const MealPlanning: React.FC = () => {
         transition={{ duration: 0.5 }}
         className="space-y-6"
       >
-        <PageHeader title="Planejamento Alimentar" description="Crie e gerencie seus planos de refeiÁ„o para alcanÁar suas metas nutricionais." icon={UtensilsCrossed} />
+        <PageHeader title="Planejamento Alimentar" description="Crie e gerencie seus planos de refeiÔøΩÔøΩo para alcanÔøΩar suas metas nutricionais." icon={UtensilsCrossed} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Vers√£o mobile - dropdown */}
@@ -263,6 +264,7 @@ const MealPlanning: React.FC = () => {
                   {activeTab === 'view' && 'Visualizar Planos'}
                   {activeTab === 'create' && 'Criar Novo Plano'}
                   {activeTab === 'edit' && 'Editar Plano'}
+                  {activeTab === 'ai-generator' && 'Gerador IA'}
                   {activeTab === 'foods' && 'Meus Alimentos'}
                   {activeTab === 'public' && 'Planos P√∫blicos'}
                 </SelectValue>
@@ -286,6 +288,12 @@ const MealPlanning: React.FC = () => {
                     Editar Plano
                   </div>
                 </SelectItem>
+                <SelectItem value="ai-generator">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={16} />
+                    Gerador IA
+                  </div>
+                </SelectItem>
                 <SelectItem value="foods">
                   <div className="flex items-center gap-2">
                     <Apple size={16} />
@@ -304,7 +312,7 @@ const MealPlanning: React.FC = () => {
 
           {/* Vers√£o desktop - tabs melhoradas */}
           <div className="hidden md:block mb-6">
-            <TabsList className="grid w-full grid-cols-5 h-12">
+            <TabsList className="grid w-full grid-cols-6 h-12">
               <TabsTrigger value="view" className="flex items-center gap-2 text-sm">
                 <Calendar size={16} className="hidden lg:block" />
                 <span className="hidden lg:inline">Visualizar</span>
@@ -319,6 +327,11 @@ const MealPlanning: React.FC = () => {
                 <Edit size={16} className="hidden lg:block" />
                 <span className="hidden lg:inline">Editar</span>
                 <span className="lg:hidden">Edit</span>
+              </TabsTrigger>
+              <TabsTrigger value="ai-generator" className="flex items-center gap-2 text-sm">
+                <Sparkles size={16} className="hidden lg:block" />
+                <span className="hidden lg:inline">Gerador IA</span>
+                <span className="lg:hidden">IA</span>
               </TabsTrigger>
               <TabsTrigger value="foods" className="flex items-center gap-2 text-sm">
                 <Apple size={16} className="hidden lg:block" />
@@ -532,6 +545,16 @@ const MealPlanning: React.FC = () => {
                       <MealPlanFormWithAI onSubmit={handleCreateMealPlan} />
                     </CardContent>
                   </Card>
+                </motion.div>
+              </TabsContent>
+
+              <TabsContent value="ai-generator" className="mt-0">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <NutritionAIGenerator />
                 </motion.div>
               </TabsContent>
 
